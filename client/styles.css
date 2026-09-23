@@ -1,0 +1,5153 @@
+/* CloseWord Party — one stylesheet, no build step.
+ *
+ * Structure:
+ *   1. tokens          colours per theme; everything else is derived
+ *   2. scene           the full-bleed background layer
+ *   3. surfaces        the glass panel treatment shared by every card
+ *   4. controls        buttons, inputs, segmented pickers
+ *   5. screens         landing, room, and the room's layout variants
+ *   6. assistant       the floating chat + personalise panel
+ *
+ * Several tokens are written at runtime by client/theme.js from the player's own
+ * preferences: --accent, --accent-text, --radius, --space-scale, --font-ui,
+ * --scene, --glass-blur, --surface-alpha. Everything below is expressed in terms
+ * of those, so a personal look never needs a second stylesheet.
+ */
+
+/* ------------------------------------------------------------------ tokens --- */
+
+:root {
+  color-scheme: light dark;
+
+  /* Surfaces are given as channels rather than colours so the glass strength
+     (--surface-alpha) can be varied without redefining every shade. */
+  --surface-rgb: 255 255 255;
+  --surface-2-rgb: 244 241 235;
+  --raise-rgb: 255 255 255;
+
+  --text: #1f1e1c;
+  --text-dim: #6d675e;
+  --line-rgb: 31 30 28;
+  --border: rgb(var(--line-rgb) / 11%);
+  --border-strong: rgb(var(--line-rgb) / 20%);
+  --danger: #c8412f;
+
+  /* Heat ramp, matching the tier labels: cold blue through scorching red. */
+  --tier-cold: #7b8794;
+  --tier-cool: #2b90c4;
+  --tier-warm: #d8940f;
+  --tier-hot: #e5732b;
+  --tier-scorching: #dc4436;
+  --tier-found: #2f9e5f;
+
+  /* Runtime defaults, so the page is sane before theme.js has run. */
+  --accent: #c96442;
+  --accent-text: #fff;
+  --radius: 14px;
+  --radius-sm: 8px;
+  --space-scale: 1;
+  --glass-blur: 14px;
+  --surface-alpha: 0.72;
+  --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --scene: linear-gradient(170deg, #faf9f5 0%, #f2efe7 100%);
+
+  --pad: calc(14px * var(--space-scale));
+  --pad-sm: calc(9px * var(--space-scale));
+  --gap: calc(14px * var(--space-scale));
+
+  --shadow: 0 1px 2px rgb(31 30 28 / 5%), 0 10px 30px -12px rgb(31 30 28 / 18%);
+  --shadow-lift: 0 2px 6px rgb(31 30 28 / 7%), 0 22px 50px -18px rgb(31 30 28 / 26%);
+  --mono: ui-monospace, "SF Mono", "Cascadia Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+  --display: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+}
+
+/* Dark tokens. theme.js always stamps data-theme, but the media query keeps the
+   first paint correct in the moment before the module runs. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --surface-rgb: 38 38 36;
+    --surface-2-rgb: 48 48 45;
+    --raise-rgb: 58 58 54;
+    --text: #f2efe7;
+    --text-dim: #a09a90;
+    --line-rgb: 255 255 255;
+    --border: rgb(var(--line-rgb) / 12%);
+    --border-strong: rgb(var(--line-rgb) / 22%);
+    --danger: #e8705d;
+    --tier-cold: #8b97a4;
+    --tier-cool: #4fb3e0;
+    --tier-warm: #eeb03c;
+    --tier-hot: #f58e4c;
+    --tier-scorching: #f2685a;
+    --tier-found: #4fc07f;
+    --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 14px 34px -14px rgb(0 0 0 / 60%);
+    --shadow-lift: 0 2px 8px rgb(0 0 0 / 45%), 0 26px 60px -20px rgb(0 0 0 / 70%);
+    --scene: linear-gradient(170deg, #1a1917 0%, #131311 100%);
+  }
+}
+
+:root[data-theme="dark"] {
+  --surface-rgb: 38 38 36;
+  --surface-2-rgb: 48 48 45;
+  --raise-rgb: 58 58 54;
+  --text: #f2efe7;
+  --text-dim: #a09a90;
+  --line-rgb: 255 255 255;
+  --border: rgb(var(--line-rgb) / 12%);
+  --border-strong: rgb(var(--line-rgb) / 22%);
+  --danger: #e8705d;
+  --tier-cold: #8b97a4;
+  --tier-cool: #4fb3e0;
+  --tier-warm: #eeb03c;
+  --tier-hot: #f58e4c;
+  --tier-scorching: #f2685a;
+  --tier-found: #4fc07f;
+  --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 14px 34px -14px rgb(0 0 0 / 60%);
+  --shadow-lift: 0 2px 8px rgb(0 0 0 / 45%), 0 26px 60px -20px rgb(0 0 0 / 70%);
+}
+
+:root[data-density="compact"] {
+  --gap: calc(11px * var(--space-scale));
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* ------------------------------------------------------------------- scene --- */
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  color: var(--text);
+  font: 15px/1.55 var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+  /* An opaque floor under the scene, so a translucent custom image never lets
+     the browser's own canvas colour show through. */
+  background: rgb(var(--surface-2-rgb));
+}
+
+/* The scene is a fixed layer rather than a body background so a custom photo
+   stays put while the page scrolls, and so `cover` is measured against the
+   viewport instead of the document height. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  background-image: var(--scene);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+/* A soft scrim keeps text legible over an arbitrary uploaded photo. Without it,
+   a bright holiday snap makes the whole UI unreadable. */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    rgb(var(--surface-rgb) / 8%) 0%,
+    rgb(var(--surface-rgb) / 22%) 100%
+  );
+}
+
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.boot {
+  margin: auto;
+  color: var(--text-dim);
+}
+
+/* ---------------------------------------------------------------- surfaces --- */
+
+/* One glass recipe, shared by cards, panels, the dock and the assistant. */
+.card,
+.panel,
+.topbar,
+.assistant-panel,
+.chip-stat {
+  background: rgb(var(--surface-rgb) / var(--surface-alpha));
+  backdrop-filter: blur(var(--glass-blur)) saturate(140%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(140%);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+/* Flat mode: the same components, no translucency or blur. */
+:root[data-glass="off"] .card,
+:root[data-glass="off"] .panel,
+:root[data-glass="off"] .topbar,
+:root[data-glass="off"] .assistant-panel,
+:root[data-glass="off"] .chip-stat {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* --------------------------------------------------------------- typography --- */
+
+h1,
+h2,
+h3 {
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+.muted {
+  color: var(--text-dim);
+}
+
+.tiny-text {
+  font-size: 12.5px;
+}
+
+.spread {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.wrap {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.eyebrow {
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+/* ---------------------------------------------------------------- controls --- */
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+  border: 1px solid var(--border-strong);
+  background: rgb(var(--raise-rgb) / 60%);
+  color: var(--text);
+  border-radius: var(--radius-sm);
+  padding: 8px 14px;
+  font-weight: 500;
+  transition:
+    background 140ms ease,
+    border-color 140ms ease,
+    transform 140ms ease,
+    box-shadow 140ms ease,
+    opacity 140ms ease;
+}
+
+button:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: color-mix(in oklab, var(--accent) 10%, rgb(var(--raise-rgb) / 70%));
+}
+
+button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+button:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+
+button.primary {
+  background: var(--accent);
+  border-color: transparent;
+  color: var(--accent-text);
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgb(31 30 28 / 12%), 0 8px 20px -10px var(--accent);
+}
+
+button.primary:hover:not(:disabled) {
+  background: color-mix(in oklab, var(--accent) 88%, black);
+  border-color: transparent;
+}
+
+button.ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-dim);
+}
+
+button.ghost:hover:not(:disabled) {
+  color: var(--text);
+  background: rgb(var(--line-rgb) / 7%);
+  border-color: transparent;
+}
+
+button.tiny {
+  padding: 3px 9px;
+  font-size: 12.5px;
+  border-radius: calc(var(--radius-sm) * 0.7);
+}
+
+/* A tick that is a plan rather than a deed — somebody lined up for a room that
+   does not exist yet. Reads as chosen, still reads as clickable, because clicking
+   it again is how you change your mind. */
+button.tiny.picked {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: color-mix(in oklab, var(--accent) 12%, transparent);
+}
+
+/* The picker's own running total, so the feedback is where the click was. */
+.picker-foot {
+  border-top: 1px solid var(--border);
+  color: var(--text-dim);
+}
+
+button.danger:hover:not(:disabled) {
+  border-color: var(--danger);
+  color: var(--danger);
+  background: color-mix(in oklab, var(--danger) 10%, transparent);
+}
+
+input[type="text"],
+input[type="number"],
+input[type="color"],
+select,
+textarea {
+  background: rgb(var(--surface-2-rgb) / 78%);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: 9px 11px;
+  width: 100%;
+}
+
+input::placeholder {
+  color: var(--text-dim);
+}
+
+input:focus-visible,
+select:focus-visible,
+button:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+input[type="range"] {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+input[type="checkbox"] {
+  accent-color: var(--accent);
+  width: auto;
+}
+
+/* Choice grid, used for modes, word sources, presets and backgrounds. */
+.mode-pick {
+  display: grid;
+  gap: 8px;
+}
+
+.mode-pick button {
+  text-align: left;
+  display: grid;
+  gap: 2px;
+  padding: 11px 13px;
+  background: rgb(var(--surface-2-rgb) / 55%);
+}
+
+.mode-pick button[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: color-mix(in oklab, var(--accent) 14%, rgb(var(--surface-rgb) / 80%));
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.mode-pick strong {
+  font-weight: 600;
+}
+
+.mode-pick small {
+  color: var(--text-dim);
+  line-height: 1.4;
+}
+
+/* Segmented control: a row of mutually exclusive short options. */
+.seg {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  background: rgb(var(--line-rgb) / 6%);
+  border-radius: var(--radius-sm);
+}
+
+.seg button {
+  flex: 1;
+  border: none;
+  background: transparent;
+  padding: 5px 8px;
+  font-size: 13px;
+  border-radius: calc(var(--radius-sm) * 0.75);
+  color: var(--text-dim);
+}
+
+.seg button[aria-pressed="true"] {
+  background: rgb(var(--raise-rgb) / 95%);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgb(31 30 28 / 12%);
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+  margin-bottom: var(--pad);
+}
+
+.field:last-child {
+  margin-bottom: 0;
+}
+
+.field label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-dim);
+}
+
+.row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.row > * {
+  min-width: 0;
+}
+
+.grid2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--pad);
+}
+
+@media (max-width: 560px) {
+  .grid2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* -------------------------------------------------------------- stat chips --- */
+
+/* The gamified read-out: a row of small glass pills, each one number the player
+   actually cares about. */
+.chips-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.chip-stat {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 13px 7px 10px;
+  border-radius: 999px;
+  box-shadow: none;
+}
+
+.chip-stat .glyph {
+  font-size: 15px;
+  line-height: 1;
+  filter: saturate(115%);
+}
+
+.chip-stat .n {
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+.chip-stat .k {
+  font-size: 11.5px;
+  color: var(--text-dim);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+/* Conic-gradient progress ring, for "how close is your best guess". */
+.ring {
+  --p: 0;
+  --size: 74px;
+  width: var(--size);
+  height: var(--size);
+  flex: none;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: conic-gradient(
+    from -90deg,
+    var(--accent) calc(var(--p) * 1%),
+    rgb(var(--line-rgb) / 10%) 0
+  );
+  position: relative;
+}
+
+.ring::before {
+  content: "";
+  position: absolute;
+  inset: 7px;
+  border-radius: 50%;
+  background: rgb(var(--surface-rgb) / 92%);
+}
+
+.ring .val {
+  position: relative;
+  font-weight: 700;
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.ring .val small {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-dim);
+}
+
+/* ------------------------------------------------------------------- dock --- */
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 9px 10px 9px 16px;
+  border-radius: 999px;
+  margin: 12px auto 0;
+  width: min(1420px, calc(100vw - 24px));
+  position: sticky;
+  top: 12px;
+  z-index: 30;
+  box-shadow: var(--shadow-lift);
+}
+
+.brand {
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  margin-right: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.brand span {
+  color: var(--accent);
+}
+
+.brand::before {
+  content: "";
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  background: var(--accent);
+  rotate: 45deg;
+  flex: none;
+}
+
+.code-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 5px 3px 13px;
+  background: rgb(var(--line-rgb) / 6%);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+
+.code-chip b {
+  font-family: var(--mono);
+  letter-spacing: 0.2em;
+  font-size: 15px;
+}
+
+.status {
+  font-size: 13px;
+  color: var(--text-dim);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.status::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--tier-found);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--tier-found) 25%, transparent);
+}
+
+.status[data-state="connecting"]::before {
+  background: var(--tier-warm);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--tier-warm) 25%, transparent);
+}
+
+.status[data-state="offline"]::before,
+.status[data-state="superseded"]::before {
+  background: var(--danger);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--danger) 25%, transparent);
+}
+
+/* ---------------------------------------------------------------- landing --- */
+
+.landing {
+  margin: 0 auto;
+  width: min(1080px, calc(100vw - 28px));
+  padding: clamp(24px, 6vh, 64px) 0 48px;
+  display: grid;
+  gap: 20px;
+  align-content: start;
+}
+
+.hero {
+  display: grid;
+  gap: 14px;
+  max-width: 720px;
+}
+
+.hero h1 {
+  font-family: var(--display);
+  font-size: clamp(34px, 5.5vw, 52px);
+  line-height: 1.05;
+  font-weight: 600;
+}
+
+.hero h1 em {
+  font-style: italic;
+  color: var(--accent);
+}
+
+.hero .lede {
+  color: var(--text-dim);
+  margin: 0;
+  font-size: 16.5px;
+  max-width: 56ch;
+}
+
+/* Two columns once there is room: setup on the left, joining on the right. */
+.landing-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  gap: var(--gap);
+  align-items: start;
+}
+
+@media (max-width: 860px) {
+  .landing-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.stack {
+  display: grid;
+  gap: var(--gap);
+}
+
+.card {
+  padding: calc(var(--pad) * 1.15);
+}
+
+.card > h2 {
+  margin: 0 0 var(--pad);
+  font-size: 11.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-dim);
+}
+
+.code-input {
+  font-family: var(--mono);
+  text-transform: uppercase;
+  letter-spacing: 0.28em;
+  text-align: center;
+  font-size: 22px;
+  padding: 12px;
+}
+
+/* ------------------------------------------------------------------- room --- */
+
+.room {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 286px minmax(0, 1fr) 316px;
+  gap: var(--gap);
+  padding: var(--gap);
+  width: min(1420px, 100vw);
+  margin: 0 auto;
+  align-items: start;
+}
+
+/* Personal layout variants. "focus" is one column with the board first; "wide"
+   folds the side panels into a single rail. */
+:root[data-layout="focus"] .room {
+  grid-template-columns: minmax(0, 1fr);
+  width: min(760px, 100vw);
+}
+
+:root[data-layout="focus"] .room > .stage-col {
+  order: -1;
+}
+
+/* Board on the left, both side panels stacked in one rail on the right.
+ *
+ * The third `1fr` row is load-bearing. The board spans every row, and grid
+ * distributes a spanning item's height into the intrinsically-sized tracks it
+ * covers — which pushed the feed halfway down the page. A spanning item that
+ * touches a *flexible* track skips that distribution entirely, so the two rail
+ * rows stay at their content height and the spare space collects at the bottom. */
+:root[data-layout="wide"] .room {
+  grid-template-columns: minmax(0, 1fr) 320px;
+  grid-template-rows: min-content min-content 1fr;
+}
+
+:root[data-layout="wide"] .room > .side-left,
+:root[data-layout="wide"] .room > .rail-left {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+:root[data-layout="wide"] .room > .stage-col {
+  grid-column: 1;
+  grid-row: 1 / -1;
+}
+
+:root[data-layout="wide"] .room > .side-right,
+:root[data-layout="wide"] .room > .split-right {
+  grid-column: 2;
+  grid-row: 2;
+}
+
+@media (max-width: 1100px) {
+  .room,
+  :root[data-layout="wide"] .room {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  :root[data-layout="wide"] .room > .side-left,
+  :root[data-layout="wide"] .room > .rail-left,
+  :root[data-layout="wide"] .room > .side-right,
+  :root[data-layout="wide"] .room > .split-right,
+  :root[data-layout="wide"] .room > .stage-col {
+    grid-column: 1;
+    grid-row: auto;
+  }
+
+  .room > .stage-col {
+    order: -1;
+  }
+}
+
+.stage-col {
+  display: grid;
+  gap: var(--gap);
+  min-width: 0;
+}
+
+.panel {
+  overflow: hidden;
+  min-width: 0;
+}
+
+/* The feed panel is the one panel that hosts a pop-over (the emoji palette),
+   which opens upwards out of the chat dock. It can afford to stop clipping:
+   its scrolling child (.feed) carries its own overflow, and neither the header
+   nor the dock paints a background into the rounded corners. */
+.panel.side-right {
+  overflow: visible;
+}
+
+.panel > header {
+  padding: var(--pad-sm) var(--pad);
+  border-bottom: 1px solid var(--border);
+  font-size: 11.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.panel > header .spacer {
+  margin-left: auto;
+}
+
+.panel-body {
+  padding: var(--pad);
+}
+
+.panel-body.tight {
+  padding: 0;
+}
+
+.divider-top {
+  border-top: 1px solid var(--border);
+}
+
+/* --- the round banner ------------------------------------------------------ */
+
+.banner {
+  padding: var(--pad) calc(var(--pad) * 1.15);
+  display: flex;
+  gap: var(--pad);
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.banner .round-label {
+  font-weight: 650;
+  font-size: 17px;
+  letter-spacing: -0.01em;
+}
+
+.banner .titles {
+  display: grid;
+  gap: 3px;
+  margin-right: auto;
+}
+
+.timer {
+  font-family: var(--mono);
+  font-size: 24px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.timer.urgent {
+  color: var(--danger);
+  animation: pulse 1s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.notice {
+  padding: var(--pad-sm) var(--pad);
+  background: color-mix(in oklab, var(--tier-warm) 18%, rgb(var(--surface-rgb) / 90%));
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+
+/* --- guessing -------------------------------------------------------------- */
+
+.guess-form {
+  display: flex;
+  gap: 8px;
+  padding: var(--pad);
+  border-top: 1px solid var(--border);
+}
+
+.guess-form input {
+  flex: 1;
+}
+
+.rows {
+  display: grid;
+}
+
+.grow {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: calc(8px * var(--space-scale)) var(--pad);
+  position: relative;
+}
+
+.grow + .grow {
+  border-top: 1px solid var(--border);
+}
+
+/* The proximity bar is drawn in the row's own tier colour, so the length and the
+   hue carry the same signal. */
+.grow .bar {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: linear-gradient(
+    90deg,
+    currentColor,
+    color-mix(in oklab, currentColor 35%, transparent)
+  );
+  opacity: 0.16;
+  pointer-events: none;
+  transition: width 260ms cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+
+.grow .word {
+  font-weight: 550;
+  position: relative;
+}
+
+.grow .who {
+  color: var(--text-dim);
+  font-size: 12px;
+  font-weight: 400;
+  margin-left: 8px;
+}
+
+.grow .rank {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  position: relative;
+  font-weight: 650;
+}
+
+.grow.latest {
+  box-shadow: inset 3px 0 0 currentColor;
+  animation: slide-in 220ms ease-out;
+}
+
+.grow.is-hint .word {
+  font-style: italic;
+}
+
+/* ------------------------------------------------------- the word itself --- */
+
+/* The word is a button, but it must not look like one sitting in a list of forty.
+   `all: unset` then inherit: the affordance is the underline on hover, nothing
+   else changes. */
+.wordbtn {
+  all: unset;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  font: inherit;
+  font-weight: inherit;
+  color: inherit;
+  border-radius: 4px;
+}
+
+.wordbtn:hover > span:last-child {
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 3px;
+}
+
+.wordbtn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* The semantic emoji. Held at a fixed width so a column of rows with and without
+   one still has its words in a line — a ragged left edge is a worse cost than a
+   little empty space. */
+.wicon {
+  flex: 0 0 auto;
+  width: 1.15em;
+  font-size: 0.95em;
+  line-height: 1;
+  text-align: center;
+}
+
+.grow.opened {
+  background: color-mix(in oklab, var(--accent) 7%, transparent);
+}
+
+/* --- the detail panel ---------------------------------------------------- */
+
+.wordpanel {
+  display: grid;
+  gap: 6px;
+  padding: 10px var(--pad) 12px;
+  border-top: 1px dashed var(--border-strong);
+  background: color-mix(in oklab, var(--accent) 5%, transparent);
+  animation: slide-in 180ms ease-out;
+}
+
+.wp-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.wp-word {
+  font-size: 15px;
+}
+
+.wp-say {
+  all: unset;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  font-size: 13px;
+  background: color-mix(in oklab, var(--accent) 16%, transparent);
+  border: 1px solid var(--border-strong);
+  transition: background 120ms ease, transform 120ms ease;
+}
+
+.wp-say:hover {
+  background: color-mix(in oklab, var(--accent) 30%, transparent);
+}
+
+.wp-say:active {
+  transform: scale(0.92);
+}
+
+.wp-say:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.wp-say.big {
+  width: 34px;
+  height: 34px;
+  font-size: 16px;
+  vertical-align: middle;
+  margin-left: 12px;
+}
+
+.wordpanel .pos {
+  font-family: var(--mono);
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  color: var(--text-dim);
+}
+
+/* IPA in the monospace face on purpose: the symbols are the point, and a
+   proportional font hides the difference between ɪ and i. */
+.wordpanel .ipa {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.wordpanel .vi {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 550;
+}
+
+.wordpanel .flag {
+  font-size: 12px;
+}
+
+.wordpanel .gloss {
+  font-size: 13px;
+  color: var(--text-dim);
+  line-height: 1.45;
+}
+
+.wp-wait {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+/* The revealed answer's emoji, sized to sit beside a very large word. */
+.secret .sicon {
+  margin-right: 12px;
+}
+
+@keyframes slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+.tier-cold {
+  color: var(--tier-cold);
+}
+.tier-cool {
+  color: var(--tier-cool);
+}
+.tier-warm {
+  color: var(--tier-warm);
+}
+.tier-hot {
+  color: var(--tier-hot);
+}
+.tier-scorching {
+  color: var(--tier-scorching);
+}
+.tier-found {
+  color: var(--tier-found);
+}
+
+.empty {
+  padding: 30px var(--pad);
+  text-align: center;
+  color: var(--text-dim);
+}
+
+/* --- standings ------------------------------------------------------------- */
+
+.plist {
+  display: grid;
+}
+
+.pitem {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 9px;
+  align-items: center;
+  padding: calc(9px * var(--space-scale)) var(--pad);
+}
+
+.pitem + .pitem {
+  border-top: 1px solid var(--border);
+}
+
+/* A row of the nickname plus any badges. The nickname is its own box so it can
+   ellipsize without the badges being clipped or overlapping it. */
+.pitem .name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-weight: 550;
+}
+
+.pitem .name > .label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.pitem .meta {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.pitem .pos {
+  font-family: var(--mono);
+  color: var(--text-dim);
+  width: 2ch;
+  text-align: right;
+  font-size: 13px;
+}
+
+.pitem.you {
+  background: color-mix(in oklab, var(--accent) 10%, transparent);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.pitem.off .name {
+  opacity: 0.5;
+}
+
+.pitem .score {
+  font-family: var(--mono);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.badge {
+  font-size: 11px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.badge.host {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.badge.solved {
+  border-color: var(--tier-found);
+  color: var(--tier-found);
+}
+
+/* --- feed ------------------------------------------------------------------ */
+
+.feed {
+  display: grid;
+  gap: 6px;
+  max-height: 44vh;
+  overflow-y: auto;
+  padding: var(--pad);
+  font-size: 13px;
+  overscroll-behavior: contain;
+}
+
+.feed .item {
+  color: var(--text-dim);
+  display: grid;
+  grid-template-columns: 1.25em auto 1fr;
+  gap: 0 6px;
+  align-items: baseline;
+  /* The name column is allowed to be as wide as it needs; the message wraps
+     under both rather than being squeezed into a sliver. */
+  word-break: break-word;
+}
+
+.feed .item .glyph {
+  font-size: 0.95em;
+  line-height: 1;
+  /* Decorative: the text after it already says what happened. */
+  user-select: none;
+}
+
+/* The name, tinted per person, in all three places one appears: the feed, the
+   players list and the journey drawer's title. One rule for the three of them,
+   because a person recognising their colour depends on it being the *same*
+   colour — three copies of this would drift.
+
+   Only the hue varies — saturation and lightness come from the theme, so every
+   name stays legible on both surfaces instead of one of them turning into
+   pale-yellow-on-white. */
+.feed .item .who,
+.pitem .name .who,
+.j-drawer > header .who {
+  font-weight: 650;
+  color: hsl(var(--who-hue, 220) 55% 38%);
+}
+
+:root[data-theme="dark"] .feed .item .who,
+:root[data-theme="dark"] .pitem .name .who,
+:root[data-theme="dark"] .j-drawer > header .who,
+:root:not([data-theme="light"]) .feed .item .who,
+:root:not([data-theme="light"]) .pitem .name .who,
+:root:not([data-theme="light"]) .j-drawer > header .who {
+  color: hsl(var(--who-hue, 220) 70% 72%);
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) .feed .item .who,
+  :root:not([data-theme="dark"]) .pitem .name .who,
+  :root:not([data-theme="dark"]) .j-drawer > header .who {
+    color: hsl(var(--who-hue, 220) 55% 38%);
+  }
+}
+
+.feed .item.chat {
+  color: var(--text);
+}
+
+/* --- presence --------------------------------------------------------------- */
+
+.presence {
+  font-size: 0.62em;
+  line-height: 1;
+  flex: none;
+  /* Nudged up to sit on the text's optical centre rather than its baseline. */
+  transform: translateY(-1px);
+}
+
+.presence.off {
+  opacity: 0.75;
+  filter: grayscale(1);
+}
+
+/* The player's colour in the standings, matching their name in the feed. */
+.pitem .pos.dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: hsl(var(--who-hue, 220) 55% 48%);
+  align-self: center;
+}
+
+.pitem.off .pos.dot {
+  background: transparent;
+  box-shadow: inset 0 0 0 2px hsl(var(--who-hue, 220) 30% 60%);
+}
+
+.feed .item.solve {
+  color: var(--tier-found);
+  font-weight: 550;
+}
+
+.feed .item.round {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* --- reveal --------------------------------------------------------------- */
+
+.reveal {
+  text-align: center;
+  padding: 26px var(--pad);
+}
+
+.reveal .secret {
+  font-family: var(--display);
+  font-size: clamp(32px, 6vw, 46px);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.reveal .near {
+  color: var(--text-dim);
+  font-size: 13px;
+  margin-top: 10px;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+  margin-top: 8px;
+}
+
+.chip {
+  background: rgb(var(--line-rgb) / 7%);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 2px 11px;
+  font-size: 13px;
+}
+
+/* -------------------------------------------------------------- assistant --- */
+
+/* The floating button. Deliberately small and out of the way — it is a companion,
+   not a feature the game depends on. */
+.assistant-fab {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 70;
+  width: 52px;
+  height: 52px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--accent);
+  color: var(--accent-text);
+  font-size: 21px;
+  display: grid;
+  place-items: center;
+  box-shadow:
+    0 6px 16px -4px rgb(31 30 28 / 30%),
+    0 0 0 0 color-mix(in oklab, var(--accent) 55%, transparent);
+  animation: halo 3.2s ease-out infinite;
+}
+
+.assistant-fab:hover:not(:disabled) {
+  background: color-mix(in oklab, var(--accent) 88%, black);
+  border-color: var(--border);
+  transform: translateY(-1px);
+}
+
+/* A slow breathing halo — the reference's glowing orb, at a size that does not
+   compete with the game. */
+@keyframes halo {
+  70%,
+  100% {
+    box-shadow:
+      0 6px 16px -4px rgb(31 30 28 / 30%),
+      0 0 0 14px color-mix(in oklab, var(--accent) 0%, transparent);
+  }
+}
+
+.assistant-fab .dot {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--tier-found);
+  border: 2px solid rgb(var(--surface-rgb));
+}
+
+.assistant-panel {
+  position: fixed;
+  right: 18px;
+  bottom: 82px;
+  z-index: 71;
+  width: min(392px, calc(100vw - 28px));
+  max-height: min(640px, calc(100vh - 120px));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: var(--shadow-lift);
+  animation: rise-panel 180ms cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+
+@keyframes rise-panel {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.985);
+  }
+}
+
+.assistant-panel[hidden] {
+  display: none;
+}
+
+.assistant-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px var(--pad);
+  border-bottom: 1px solid var(--border);
+}
+
+.assistant-head .who {
+  display: grid;
+  margin-right: auto;
+  min-width: 0;
+}
+
+.assistant-head .who b {
+  font-size: 14px;
+}
+
+.assistant-head .who small {
+  color: var(--text-dim);
+  font-size: 11.5px;
+}
+
+.assistant-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 8px var(--pad) 0;
+}
+
+.assistant-tabs button {
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  padding: 6px 11px;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  font-size: 13px;
+}
+
+.assistant-tabs button[aria-selected="true"] {
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+
+.assistant-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--pad);
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  overscroll-behavior: contain;
+}
+
+/* --- chat transcript ------------------------------------------------------- */
+
+.msg {
+  max-width: 88%;
+  padding: 9px 12px;
+  border-radius: var(--radius);
+  font-size: 14px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.msg.from-you {
+  justify-self: end;
+  background: var(--accent);
+  color: var(--accent-text);
+  border-bottom-right-radius: var(--radius-sm);
+}
+
+.msg.from-bot {
+  justify-self: start;
+  background: rgb(var(--line-rgb) / 7%);
+  border-bottom-left-radius: var(--radius-sm);
+}
+
+.msg.from-note {
+  justify-self: stretch;
+  max-width: 100%;
+  background: color-mix(in oklab, var(--tier-found) 14%, transparent);
+  border: 1px solid color-mix(in oklab, var(--tier-found) 35%, transparent);
+  font-size: 12.5px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.msg.from-note.bad {
+  background: color-mix(in oklab, var(--danger) 12%, transparent);
+  border-color: color-mix(in oklab, var(--danger) 35%, transparent);
+}
+
+.msg.from-note button {
+  margin-left: auto;
+  /* "Undo" is two letters wide in a narrow flex row otherwise. */
+  flex: none;
+  white-space: nowrap;
+}
+
+.msg.thinking {
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+.assistant-foot {
+  border-top: 1px solid var(--border);
+  padding: var(--pad-sm) var(--pad);
+  display: grid;
+  gap: 8px;
+}
+
+.suggestions {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: thin;
+}
+
+.suggestions button {
+  flex: none;
+  font-size: 12.5px;
+  padding: 4px 11px;
+  border-radius: 999px;
+  background: rgb(var(--line-rgb) / 6%);
+  color: var(--text-dim);
+  border-color: var(--border);
+}
+
+/* --- personalise controls -------------------------------------------------- */
+
+.swatches {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.swatch {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  box-shadow: inset 0 0 0 1px rgb(var(--line-rgb) / 18%);
+}
+
+.swatch[aria-pressed="true"] {
+  border-color: var(--text);
+  transform: scale(1.06);
+}
+
+.swatch:hover:not(:disabled) {
+  border-color: var(--border-strong);
+}
+
+.scene-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+  gap: 8px;
+}
+
+.scene-swatch {
+  padding: 0;
+  height: 52px;
+  border-radius: var(--radius-sm);
+  background-size: cover;
+  background-position: center;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--border-strong);
+}
+
+.scene-swatch span {
+  position: absolute;
+  inset: auto 0 0 0;
+  font-size: 10.5px;
+  padding: 3px 5px;
+  background: rgb(0 0 0 / 45%);
+  color: #fff;
+  text-align: left;
+}
+
+.scene-swatch[aria-pressed="true"] {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.privacy-note {
+  font-size: 11.5px;
+  color: var(--text-dim);
+  display: flex;
+  gap: 7px;
+  align-items: flex-start;
+  padding: 9px 11px;
+  border-radius: var(--radius-sm);
+  background: rgb(var(--line-rgb) / 5%);
+}
+
+/* ---------------------------------------------------------------- overlays --- */
+
+.toasts {
+  position: fixed;
+  bottom: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: grid;
+  gap: 8px;
+  z-index: 60;
+  pointer-events: none;
+  width: min(440px, 92vw);
+}
+
+.toast {
+  background: rgb(var(--surface-rgb) / 96%);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-sm);
+  padding: 10px 13px;
+  box-shadow: var(--shadow-lift);
+  animation: rise 180ms ease-out;
+}
+
+.toast.error {
+  border-left-color: var(--danger);
+}
+
+.toast.warn {
+  border-left-color: var(--tier-warm);
+}
+
+.toast.good {
+  border-left-color: var(--tier-found);
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+/* Persistent bar for connection states the player has to act on, rather than a
+   toast that vanishes while they are still reading it. */
+.conn-banner {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  background: color-mix(in oklab, var(--tier-warm) 26%, rgb(var(--surface-rgb) / 95%));
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+  position: sticky;
+  top: 0;
+  z-index: 80;
+}
+
+.conn-banner[hidden] {
+  display: none;
+}
+
+/* ---------------------------------------------------------------- journey --- */
+
+/* A name that opens its journey. Deliberately still looks like a name: the row
+   is dense enough already, and a control-shaped name would read as an action
+   rather than as the person it names. The pointer and the focus ring are what
+   make it discoverable. */
+.who.linkish {
+  all: unset;
+  cursor: pointer;
+  font: inherit;
+}
+
+.who.linkish:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.who.linkish:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+.j-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgb(0 0 0 / 38%);
+}
+
+.j-drawer {
+  position: fixed;
+  z-index: 61;
+  inset: 0 0 0 auto;
+  width: min(540px, 100vw);
+  display: flex;
+  flex-direction: column;
+  border-radius: 0;
+  box-shadow: -18px 0 48px rgb(0 0 0 / 22%);
+  animation: j-slide-in 200ms cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+
+@keyframes j-slide-in {
+  from {
+    transform: translateX(20px);
+    opacity: 0;
+  }
+}
+
+.j-body {
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.jr + .jr {
+  border-top: 1px solid var(--border);
+}
+
+.jr-head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px var(--pad) 8px;
+}
+
+/* The step number, so "their fourth guess" is a thing you can point at. */
+.grow .step-n {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-dim);
+  margin-right: 8px;
+}
+
+/* Two journeys at once, when you are looking at somebody else's. Each column
+   scrolls on its own so the two runs stay lined up at the top. */
+.j-drawer.compare {
+  width: min(940px, 100vw);
+}
+
+.j-panes {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 1fr;
+}
+
+.j-drawer.compare .j-panes {
+  grid-template-columns: 1fr 1fr;
+}
+
+.j-pane {
+  min-width: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.j-pane.mine {
+  border-left: 1px solid var(--border);
+  background: color-mix(in oklab, var(--text) 2.5%, transparent);
+}
+
+.j-pane-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 8px var(--pad);
+  font-size: 11.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  /* Opaque on purpose: it is sticky, so the steps scroll underneath it. */
+  background: rgb(var(--surface-rgb));
+  border-bottom: 1px solid var(--border);
+}
+
+.ask-strip {
+  border-bottom: 1px solid var(--border);
+}
+
+/* Below this the two columns would each be too narrow to read a guess row in,
+   so they stack and the drawer stops pretending to be a comparison. */
+@media (max-width: 760px) {
+  .j-drawer.compare {
+    width: 100vw;
+  }
+
+  .j-drawer.compare .j-panes {
+    grid-template-columns: 1fr;
+    overflow-y: auto;
+  }
+
+  .j-pane {
+    overflow: visible;
+  }
+
+  .j-pane.mine {
+    border-left: 0;
+    border-top: 1px solid var(--border);
+  }
+}
+
+/* ------------------------------------------------------------------ buzz --- */
+
+/* A short, decaying wobble rather than a constant shake: the point is to catch
+   an eye that is somewhere else, and anything longer is just annoying. The
+   global reduced-motion rules below switch this off, and buzz.js checks the
+   same preferences before adding the class at all. */
+@keyframes buzz-shake {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  10% {
+    transform: translate(-7px, 3px);
+  }
+  20% {
+    transform: translate(6px, -4px);
+  }
+  30% {
+    transform: translate(-5px, -2px);
+  }
+  40% {
+    transform: translate(4px, 3px);
+  }
+  55% {
+    transform: translate(-3px, 1px);
+  }
+  70% {
+    transform: translate(2px, -1px);
+  }
+  85% {
+    transform: translate(-1px, 0);
+  }
+}
+
+/* On #app, not body: a transform makes the element the containing block for its
+   fixed-position descendants, and shaking the body would drag the effects layer
+   — the buzz card, and every egg in flight — along with it. */
+#app.buzzing {
+  animation: buzz-shake 620ms cubic-bezier(0.36, 0.07, 0.19, 0.97);
+}
+
+/* The buzz card: everything greys out, one word lands on top of it. Lives in the
+   effects layer, which takes no pointer events, so the greyout is strictly
+   visual — a buzz can interrupt your attention but never your typing. */
+.buzz-card {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  gap: 6px;
+  text-align: center;
+  /* Two layers of dimming: a flat scrim for browsers without backdrop-filter,
+     and desaturation on top where it is supported. The UI reads as switched off
+     rather than merely darker. */
+  background: rgb(8 8 12 / 52%);
+  backdrop-filter: blur(2.5px) grayscale(70%);
+  animation: buzz-card 1500ms cubic-bezier(0.2, 0.9, 0.3, 1) both;
+}
+
+.buzz-card strong {
+  font-size: clamp(58px, 17vw, 190px);
+  font-weight: 900;
+  line-height: 0.92;
+  letter-spacing: -0.04em;
+  color: #fff;
+  /* Yellow through orange, the colour of the button that sent it. */
+  background: linear-gradient(180deg, #fde68a 8%, #f59e0b 55%, #dc2626 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 6px 18px rgb(0 0 0 / 55%));
+}
+
+.buzz-card span {
+  font-size: clamp(13px, 2.2vw, 20px);
+  font-weight: 650;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgb(255 255 255 / 82%);
+  text-shadow: 0 2px 10px rgb(0 0 0 / 60%);
+}
+
+/* Snaps in, holds long enough to read, then gets out of the way. The scale
+   overshoot is on the whole card so the scrim punches in with the word rather
+   than fading up politely behind it. */
+@keyframes buzz-card {
+  0% {
+    opacity: 0;
+    transform: scale(1.14);
+  }
+  9% {
+    opacity: 1;
+    transform: scale(0.99);
+  }
+  16% {
+    transform: scale(1.02);
+  }
+  24% {
+    transform: scale(1);
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.06);
+  }
+}
+
+/* ------------------------------------------------- roses, eggs, in flight --- */
+
+/* One fixed layer for everything thrown, above the page and deaf to the mouse.
+   Under the toasts, dialogs and the journey drawer on purpose: an egg is never
+   more important than a question somebody is waiting on an answer to, and the
+   toast naming who threw it has to stay readable through the shower. */
+#fxLayer {
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+/* Every piece is positioned by a `translate` off the layer's top-left corner
+   rather than by `left`/`top`, so the whole path is one composited transform and
+   nothing here can trigger layout while a dozen of them are in the air. Each
+   chain ends with `translate(-50%, -50%)` to centre the piece on its coordinate,
+   which matters now that sizes vary by a factor of three. */
+
+.fx {
+  position: absolute;
+  top: 0;
+  left: 0;
+  line-height: 1;
+  will-change: transform, opacity;
+  animation: fx-throw 820ms cubic-bezier(0.25, 0.7, 0.35, 1) both;
+}
+
+/* The arc is in the keyframes rather than a path: the midpoint lift is what
+   stops it looking like a straight slide across the page, and the overshoot at
+   84% is the squash on impact — a glyph that simply stops has not hit anything. */
+@keyframes fx-throw {
+  0% {
+    transform: translate(var(--fx-x0), var(--fx-y0)) scale(0.35) rotate(0deg) translate(-50%, -50%);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  40% {
+    transform: translate(
+      calc((var(--fx-x0) + var(--fx-x1)) / 2),
+      calc((var(--fx-y0) + var(--fx-y1)) / 2 - var(--fx-lift))
+    ) scale(1.3) rotate(calc(var(--fx-spin) * 0.5)) translate(-50%, -50%);
+    opacity: 1;
+  }
+  72% {
+    transform: translate(var(--fx-x1), var(--fx-y1)) scale(1) rotate(var(--fx-spin))
+      translate(-50%, -50%);
+    opacity: 1;
+  }
+  84% {
+    transform: translate(var(--fx-x1), var(--fx-y1)) scale(1.55) rotate(var(--fx-spin))
+      translate(-50%, -50%);
+    opacity: 0.9;
+  }
+  100% {
+    transform: translate(var(--fx-x1), calc(var(--fx-y1) + 12px)) scale(0.45) rotate(var(--fx-spin))
+      translate(-50%, -50%);
+    opacity: 0;
+  }
+}
+
+.fx-egg {
+  filter: drop-shadow(0 3px 4px rgb(0 0 0 / 28%));
+}
+
+.fx-rose {
+  filter: drop-shadow(0 3px 8px rgb(0 0 0 / 22%));
+}
+
+/* --- what a landing leaves behind ---------------------------------------- */
+
+/* The yolk, or the bloom. Irregular border-radius rather than a circle: a round
+   splat looks like a sticker, and this is meant to look like a mess. */
+.fx-mark {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--fx-size);
+  height: var(--fx-size);
+  border-radius: 46% 54% 62% 38% / 58% 42% 56% 44%;
+  animation: fx-mark 1500ms cubic-bezier(0.2, 1.1, 0.3, 1) both;
+}
+
+@keyframes fx-mark {
+  0% {
+    transform: translate(var(--fx-x), var(--fx-y)) rotate(var(--fx-r)) scale(0.2)
+      translate(-50%, -50%);
+    opacity: 0;
+  }
+  14% {
+    transform: translate(var(--fx-x), var(--fx-y)) rotate(var(--fx-r)) scale(1.2)
+      translate(-50%, -50%);
+    opacity: 0.95;
+  }
+  32% {
+    transform: translate(var(--fx-x), var(--fx-y)) rotate(var(--fx-r)) scale(1)
+      translate(-50%, -50%);
+    opacity: 0.9;
+  }
+  100% {
+    /* Slumps downwards as it fades — the difference between drying and vanishing. */
+    transform: translate(var(--fx-x), calc(var(--fx-y) + 9px)) rotate(var(--fx-r)) scale(1.1, 0.86)
+      translate(-50%, -50%);
+    opacity: 0;
+  }
+}
+
+.fx-mark-egg {
+  background: radial-gradient(
+    circle at 42% 38%,
+    #ffcf3f 0 20%,
+    #ffe49a 30% 44%,
+    rgb(255 253 245 / 88%) 52% 100%
+  );
+}
+
+.fx-mark-rose {
+  background: radial-gradient(
+    circle at 50% 45%,
+    color-mix(in oklab, var(--accent) 55%, #ff4d6d) 0 34%,
+    rgb(255 128 160 / 40%) 55%,
+    transparent 78%
+  );
+}
+
+/* An escalation does not splatter, it flares: a hot ring that burns out. */
+.fx-mark-escalated {
+  background: radial-gradient(
+    circle at 50% 50%,
+    rgb(255 255 255 / 85%) 0 12%,
+    #ff3b30 20% 34%,
+    rgb(255 59 48 / 45%) 46%,
+    transparent 72%
+  );
+}
+
+/* A blocker leaves hazard tape — the diagonal bars everybody reads as "stop". */
+.fx-mark-blocker {
+  border-radius: 3px;
+  background: repeating-linear-gradient(
+    45deg,
+    #f59e0b 0 6px,
+    #1c1917 6px 12px
+  );
+  opacity: 0.9;
+}
+
+/* Specks flung out of the impact: shell and yolk, or petals coming apart. */
+.fx-bit {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--fx-size);
+  height: var(--fx-size);
+  animation: fx-bit 1400ms cubic-bezier(0.2, 0.5, 0.3, 1) both;
+}
+
+@keyframes fx-bit {
+  0% {
+    transform: translate(var(--fx-x), var(--fx-y)) rotate(0deg) translate(-50%, -50%);
+    opacity: 1;
+  }
+  70% {
+    opacity: 0.85;
+  }
+  100% {
+    transform: translate(calc(var(--fx-x) + var(--fx-dx)), calc(var(--fx-y) + var(--fx-dy)))
+      rotate(var(--fx-r)) translate(-50%, -50%);
+    opacity: 0;
+  }
+}
+
+.fx-bit-egg {
+  border-radius: 50%;
+  background: #fff3c8;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 20%);
+}
+
+.fx-bit-rose {
+  /* A leaf shape out of two opposite corners — cheaper than an SVG petal and,
+     at eight pixels while tumbling, indistinguishable from one. */
+  border-radius: 70% 0 70% 0;
+  background: linear-gradient(140deg, #ff7d99, #e11d48);
+}
+
+/* Sparks off a flare. */
+.fx-bit-escalated {
+  border-radius: 50%;
+  background: #ffb020;
+  box-shadow: 0 0 6px 1px rgb(255 90 40 / 70%);
+}
+
+/* Grit and chips of the barrier. Square, because nothing here is soft. */
+.fx-bit-blocker {
+  border-radius: 1px;
+  background: #f59e0b;
+  box-shadow: inset 0 0 0 1px rgb(28 25 23 / 60%);
+}
+
+/* --- being the one hit --------------------------------------------------- */
+
+/* A wash over the whole page. Strength is set per throw, so the first rose is a
+   suggestion and the sixth egg is unmistakable. */
+.fx-flash {
+  position: absolute;
+  inset: 0;
+  animation: fx-flash 800ms ease-out both;
+}
+
+@keyframes fx-flash {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  14% {
+    opacity: calc(var(--fx-strength) * 0.6);
+  }
+}
+
+.fx-flash-egg {
+  background: radial-gradient(circle at 50% 44%, rgb(255 196 60 / 42%), transparent 64%);
+}
+
+.fx-flash-rose {
+  background: radial-gradient(circle at 50% 44%, rgb(255 96 140 / 38%), transparent 64%);
+}
+
+/* An escalation washes in from the edges rather than the middle: the alarm is
+   going off around you, not at you. */
+.fx-flash-escalated {
+  background: radial-gradient(circle at 50% 44%, transparent 34%, rgb(255 40 40 / 46%) 100%);
+}
+
+.fx-flash-blocker {
+  background: radial-gradient(circle at 50% 44%, rgb(245 158 11 / 34%), transparent 68%);
+}
+
+/* The streak stamp, centre screen. Only for the person being pelted, and only
+   once it is a streak — a stamp for one polite rose would be shouting. */
+.fx-stamp {
+  position: absolute;
+  left: 50%;
+  top: 40%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: clamp(60px, 16vw, 148px);
+  line-height: 1;
+  filter: drop-shadow(0 10px 26px rgb(0 0 0 / 38%));
+  animation: fx-stamp 1300ms cubic-bezier(0.2, 1.3, 0.3, 1) both;
+}
+
+.fx-stamp b {
+  font-family: var(--mono);
+  font-size: 0.34em;
+  font-weight: 800;
+  color: #fff;
+  padding: 0.12em 0.4em;
+  border-radius: 999px;
+  letter-spacing: -0.02em;
+}
+
+.fx-stamp-egg b {
+  background: #d97706;
+}
+
+.fx-stamp-rose b {
+  background: #e11d48;
+}
+
+.fx-stamp-escalated b {
+  background: #dc2626;
+}
+
+.fx-stamp-blocker b {
+  background: #b45309;
+}
+
+@keyframes fx-stamp {
+  0% {
+    transform: translate(-50%, -50%) scale(0.2) rotate(-20deg);
+    opacity: 0;
+  }
+  18% {
+    transform: translate(-50%, -50%) scale(1.3) rotate(7deg);
+    opacity: 1;
+  }
+  32% {
+    transform: translate(-50%, -50%) scale(1) rotate(0deg);
+    opacity: 1;
+  }
+  74% {
+    transform: translate(-50%, -50%) scale(1.04) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.3) rotate(0deg);
+    opacity: 0;
+  }
+}
+
+/* A shove that settles, as against the buzz's side-to-side rattle — so the two
+   are still distinguishable when both land in the same second. On `#app` rather
+   than `body`: see the note in throwables.js about fixed-position ancestors. */
+#app.hit-jolt {
+  animation: hit-jolt 440ms cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+
+#app.hit-jolt-hard {
+  animation: hit-jolt-hard 720ms cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+
+@keyframes hit-jolt {
+  0%,
+  100% {
+    transform: none;
+  }
+  22% {
+    transform: translateY(8px) scale(0.994);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+  76% {
+    transform: translateY(2px);
+  }
+}
+
+@keyframes hit-jolt-hard {
+  0%,
+  100% {
+    transform: none;
+  }
+  14% {
+    transform: translate(-9px, 14px) rotate(-0.7deg) scale(0.988);
+  }
+  34% {
+    transform: translate(7px, -7px) rotate(0.5deg);
+  }
+  54% {
+    transform: translate(-5px, 5px) rotate(-0.3deg);
+  }
+  76% {
+    transform: translate(3px, -2px);
+  }
+  90% {
+    transform: translate(-1px, 1px);
+  }
+}
+
+/* The row being aimed at, so the eye is already there when the glyphs arrive. */
+.pitem.hit-egg,
+.pitem.hit-rose,
+.pitem.hit-escalated,
+.pitem.hit-blocker {
+  animation: fx-hit 700ms ease-out;
+}
+
+@keyframes fx-hit {
+  0%,
+  100% {
+    background-color: transparent;
+  }
+  35% {
+    background-color: color-mix(in oklab, var(--fx-tint) 26%, transparent);
+  }
+}
+
+.pitem.hit-egg {
+  --fx-tint: var(--tier-warm);
+}
+
+.pitem.hit-rose {
+  --fx-tint: var(--accent);
+}
+
+.pitem.hit-escalated {
+  --fx-tint: #ef4444;
+}
+
+.pitem.hit-blocker {
+  --fx-tint: #f59e0b;
+}
+
+/* ----------------------------------------------------------------- emoji --- */
+
+.chat-dock {
+  position: relative;
+}
+
+.emoji-toggle {
+  padding-inline: 10px;
+  font-size: 16px;
+  line-height: 1;
+}
+
+/* ------------------------------------------------------------- mentions --- */
+
+/* Same dock, same geometry as the emoji palette, so the two cannot both be
+   floating in different places. Only one is ever open: typing @ is not something
+   you do while picking an emoji. */
+.mention-menu {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  z-index: 41;
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+  background: rgb(var(--surface-rgb));
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  box-shadow: 0 16px 40px rgb(0 0 0 / 18%);
+}
+
+.mention-item {
+  all: unset;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: calc(var(--radius) - 4px);
+  font: inherit;
+  font-size: 13px;
+}
+
+.mention-item.on,
+.mention-item:hover {
+  background: color-mix(in oklab, var(--accent) 18%, transparent);
+}
+
+/* An @name inside a feed line. */
+.said .tag {
+  font-weight: 650;
+  color: var(--accent);
+  padding: 0 2px;
+  border-radius: 3px;
+  background: color-mix(in oklab, var(--accent) 12%, transparent);
+}
+
+/* The line that tagged you. A left rule rather than a full highlight: the feed is
+   already colourful, and a whole tinted row competes with the tier colours. */
+.item.tagged-you {
+  box-shadow: inset 2px 0 0 var(--accent);
+  background: color-mix(in oklab, var(--accent) 8%, transparent);
+  border-radius: 4px;
+}
+
+/* One pulse of the whole feed when you are tagged, so the eye goes there. */
+.feed.tagged {
+  animation: feed-tagged 1500ms ease-out;
+}
+
+@keyframes feed-tagged {
+  0%,
+  100% {
+    box-shadow: inset 0 0 0 0 transparent;
+  }
+  12% {
+    box-shadow: inset 0 0 0 2px var(--accent);
+  }
+  60% {
+    box-shadow: inset 0 0 0 2px color-mix(in oklab, var(--accent) 40%, transparent);
+  }
+}
+
+.emoji-panel {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 0;
+  left: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  max-height: 300px;
+  /* Opaque: the palette floats over the feed and has to hide it. */
+  background: rgb(var(--surface-rgb));
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  box-shadow: 0 16px 40px rgb(0 0 0 / 18%);
+  overflow: hidden;
+}
+
+.emoji-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.emoji-head .spacer {
+  margin-left: auto;
+}
+
+.emoji-scroll {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 8px 10px 10px;
+}
+
+.emoji-group + .emoji-group {
+  margin-top: 10px;
+}
+
+.emoji-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(34px, 1fr));
+  gap: 2px;
+  margin-top: 4px;
+}
+
+.emoji-cell {
+  all: unset;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  height: 32px;
+  font-size: 19px;
+  line-height: 1;
+  border-radius: var(--radius-sm);
+}
+
+.emoji-cell:hover {
+  background: color-mix(in oklab, var(--accent) 16%, transparent);
+}
+
+.emoji-cell:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* --------------------------------------------------------------- dialogs --- */
+
+.modal-wrap {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  pointer-events: none;
+}
+
+.modal-wrap > * {
+  pointer-events: auto;
+}
+
+.modal {
+  position: relative;
+  z-index: 71;
+  width: min(520px, 100%);
+  max-height: min(80vh, 720px);
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 24px 60px rgb(0 0 0 / 28%);
+  animation: modal-in 180ms cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+
+.modal.wide {
+  width: min(760px, 100%);
+}
+
+@keyframes modal-in {
+  from {
+    transform: translateY(8px) scale(0.985);
+    opacity: 0;
+  }
+}
+
+.modal-body {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* A question, not a notification: the name is the subject of the sentence, so
+   it is set at reading size rather than as a label. */
+.ask-line {
+  font-size: 15px;
+  margin: 0 0 6px;
+}
+
+.ask .wrap {
+  margin-top: 14px;
+}
+
+/* ------------------------------------------------------------ what's new --- */
+
+.hero-actions {
+  margin-top: 14px;
+}
+
+.news {
+  position: relative;
+}
+
+.news-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-left: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 25%, transparent);
+  vertical-align: middle;
+}
+
+.release {
+  padding: 14px var(--pad);
+}
+
+.release + .release {
+  border-top: 1px solid var(--border);
+}
+
+.release-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.release-head .spacer {
+  margin-left: auto;
+}
+
+.release-list {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 7px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.release-list b {
+  color: var(--text);
+}
+
+/* ------------------------------------------------------------- reactions --- */
+
+.reacts {
+  display: flex;
+  /* Four kinds fit a normal panel, but the players list narrows on a phone and a
+     row that overflows would clip the last one out of reach entirely. */
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-top: 4px;
+}
+
+.react {
+  all: unset;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 5px;
+  border-radius: 999px;
+  font-size: 12px;
+  line-height: 1.5;
+  border: 1px solid transparent;
+  /* Reactions are decoration until you hover a row: at full strength every
+     player row would carry two competing bits of colour and the standings would
+     stop reading as standings. */
+  opacity: 0.45;
+  transition: opacity 120ms ease, background 120ms ease;
+}
+
+.pitem:hover .react,
+.react:focus-visible,
+.react.hot,
+.react .n {
+  opacity: 1;
+}
+
+.react:hover:not(:disabled) {
+  background: color-mix(in oklab, var(--accent) 14%, transparent);
+  border-color: var(--border-strong);
+}
+
+.react:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* A kind somebody has already thrown keeps its tally lit and stays clickable —
+   throwing is unlimited, so a button that looked spent would read as broken. */
+.react.hot {
+  background: color-mix(in oklab, var(--text) 7%, transparent);
+}
+
+.react.tally {
+  cursor: default;
+  opacity: 1;
+}
+
+.react .n {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 650;
+  color: var(--text-dim);
+}
+
+/* A tally somebody already has is worth seeing without hovering for it. */
+.react:has(.n) {
+  opacity: 1;
+}
+
+.badge.drinks {
+  border-color: color-mix(in oklab, var(--tier-warm) 45%, transparent);
+  color: var(--tier-warm);
+}
+
+/* ---------------------------------------------------------- bought hints --- */
+
+button.buy {
+  border-color: color-mix(in oklab, var(--tier-warm) 45%, transparent);
+  color: var(--tier-warm);
+}
+
+button.buy:hover:not(:disabled) {
+  background: color-mix(in oklab, var(--tier-warm) 12%, transparent);
+}
+
+/* --------------------------------------------------------- the team picker --- */
+
+.team-picker {
+  border-bottom: 1px solid var(--border);
+}
+
+.team-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
+  padding: 0 var(--pad) var(--pad);
+}
+
+.team-row {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 9px 10px 10px;
+  display: grid;
+  gap: 8px;
+  align-content: start;
+}
+
+/* Your own side, marked the same way your own row is marked in the standings. */
+.team-row.mine {
+  border-color: color-mix(in oklab, var(--accent) 45%, var(--border));
+  background: color-mix(in oklab, var(--accent) 7%, transparent);
+}
+
+.team-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.team-head .spacer {
+  margin-left: auto;
+}
+
+.team-members {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  align-items: center;
+}
+
+/* A member is a chip; when you are allowed to move them it is also a button, and
+   only then does it pick up the affordances of one. */
+.member {
+  all: unset;
+  font-size: 12px;
+  font-weight: 550;
+  padding: 2px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  color: var(--text-dim);
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.member.you {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.member:not(:disabled) {
+  cursor: pointer;
+}
+
+.member:not(:disabled):hover {
+  background: color-mix(in oklab, var(--accent) 16%, transparent);
+  color: var(--text);
+}
+
+.member:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* Respect both the OS setting and the player's own switch. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+:root[data-motion="off"] *,
+:root[data-motion="off"] *::before,
+:root[data-motion="off"] *::after {
+  animation: none !important;
+  transition: none !important;
+}
+
+/* The 18+ word set, marked in the picker. A tint and a corner tag rather than a
+   scary warning: it is opt-in, everyone in the room can see it is in play, and a
+   room that chose it does not need telling off about it on every render. */
+.mode-pick button.adult strong::after {
+  content: "18+";
+  margin-left: 8px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 700;
+  vertical-align: 2px;
+  color: #fff;
+  background: #be185d;
+}
+
+.mode-pick button.adult[aria-pressed="true"] {
+  border-color: #be185d;
+  background: color-mix(in oklab, #be185d 10%, transparent);
+}
+
+/* --------------------------------------------------- open rooms, landing --- */
+
+.live-rooms {
+  margin-top: 10px;
+}
+
+.live-rooms p {
+  margin: 0 0 8px;
+}
+
+.room-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* One row per room: identity and state on the left, the way in on the right.
+   Same shape as a player row, because it is the same kind of thing — something
+   with a name, a state, and one button that acts on it. */
+.room-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: space-between;
+  padding: 7px 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: color-mix(in oklab, var(--text) 3%, transparent);
+}
+
+.room-row-top {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.room-row .mono {
+  font-family: var(--mono);
+  letter-spacing: 0.08em;
+}
+
+.room-row .tag {
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  color: var(--text-dim);
+  background: color-mix(in oklab, var(--text) 8%, transparent);
+}
+
+.room-row .adult-tag {
+  font-family: var(--mono);
+  font-weight: 700;
+  color: #fff;
+  background: #be185d;
+}
+
+/* "Somebody is putting a room together for you." Nothing to click — the point is
+   that the wait stops being silent — so it reads as a notice rather than an
+   action, and the pulse says something is still in motion. */
+.invite-ahead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 9px 11px;
+  border: 1px solid color-mix(in oklab, var(--accent) 45%, var(--border));
+  border-radius: var(--radius-sm);
+  background: color-mix(in oklab, var(--accent) 9%, transparent);
+}
+
+.invite-ahead b {
+  display: block;
+  font-size: 13px;
+}
+
+.invite-ahead .tiny-text {
+  color: var(--text-dim);
+}
+
+.spinner-dot {
+  flex: 0 0 auto;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: ahead-pulse 1400ms ease-in-out infinite;
+}
+
+@keyframes ahead-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
+
+/* --------------------------------------------------------- the board game --- */
+
+/* The chooser. Two cards and nothing else: the first screen has exactly one
+   decision on it, so it can afford to make that decision large. */
+.landing.gate .game-pick {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--gap);
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.game-card {
+  display: grid;
+  gap: 7px;
+  justify-items: start;
+  text-align: left;
+  padding: calc(var(--pad) * 1.5);
+  border-radius: var(--radius);
+  min-height: 210px;
+  align-content: start;
+}
+
+.game-card:hover:not(:disabled) {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+}
+
+.game-card .game-icon {
+  font-size: 42px;
+  line-height: 1;
+}
+
+.game-card strong {
+  font-size: 21px;
+  letter-spacing: -0.01em;
+}
+
+.game-card .game-tag {
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.game-card small {
+  color: var(--text-dim);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.game-card .game-go {
+  margin-top: auto;
+  padding-top: 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* The board wants the width, so its room gives the side rails less of it. */
+/* Wider rails than the word game's.
+ *
+ * The left one now carries your own deeds under the table — four small buttons
+ * per row need the room — and the right one is two panels stacked, so the feed
+ * and the chat each get a readable width. */
+.room.board {
+  grid-template-columns: 296px minmax(0, 1fr) 300px;
+  width: min(1680px, 100vw);
+}
+
+/* The left rail: the table, then what you own. Stacked in one column so both
+   scroll with the page rather than each growing its own scrollbar. */
+.rail-left {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+  min-width: 0;
+}
+
+.mono-stage {
+  display: grid;
+  gap: var(--gap);
+  padding: var(--pad);
+}
+
+.banner-inner {
+  display: flex;
+  gap: var(--pad);
+  align-items: center;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.banner-inner .big {
+  font-weight: 650;
+  font-size: 17px;
+  letter-spacing: -0.01em;
+  margin-right: auto;
+}
+
+.mono-turn,
+.mono-dice,
+.mono-cash,
+.mono-win {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 14px;
+}
+
+.mono-turn.you {
+  color: var(--accent);
+  font-weight: 650;
+}
+
+.mono-dice {
+  font-size: 26px;
+  line-height: 1;
+}
+
+/* The throw.
+
+   Drawn dice rather than the ⚀–⚅ glyphs, so the pips are countable at the size
+   they are actually shown, and sized in `em` off .mono-dice so one number is in
+   charge of how big they are.
+
+   The two dice tumble out of phase: the same shake on both reads as one wide
+   object wobbling rather than as two dice. Both animations are killed by the
+   reduced-motion rule near the top of this file, and the JS that cycles the
+   faces checks the same switch, so "less motion" gets the result and nothing
+   else. */
+.mono-dice .die {
+  display: inline-block;
+  width: 0.86em;
+  height: 0.86em;
+  color: var(--text);
+  transform-origin: 50% 55%;
+}
+
+.mono-dice .die svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.mono-dice.rolling .die {
+  animation: dice-tumble 0.28s linear infinite;
+}
+
+.mono-dice.rolling .die:last-of-type {
+  animation-duration: 0.22s;
+  animation-direction: reverse;
+}
+
+.mono-dice.landed .die {
+  animation: dice-land 0.26s cubic-bezier(0.2, 1.4, 0.4, 1) 1;
+}
+
+/* Kept in the layout while the dice tumble, so the row does not jump when the
+   number arrives — `visibility`, not `display`. */
+.mono-dice.rolling .dice-total {
+  visibility: hidden;
+}
+
+@keyframes dice-tumble {
+  0% {
+    transform: rotate(-14deg) translateY(0) scale(1);
+  }
+  25% {
+    transform: rotate(9deg) translateY(-4px) scale(1.06);
+  }
+  50% {
+    transform: rotate(18deg) translateY(0) scale(1);
+  }
+  75% {
+    transform: rotate(-6deg) translateY(-3px) scale(1.04);
+  }
+  100% {
+    transform: rotate(-14deg) translateY(0) scale(1);
+  }
+}
+
+@keyframes dice-land {
+  0% {
+    transform: scale(1.28) translateY(-3px);
+  }
+  100% {
+    transform: scale(1) translateY(0);
+  }
+}
+.mono-win {
+  font-weight: 650;
+  color: var(--tier-found);
+}
+
+/* --- the ring -------------------------------------------------------------- */
+
+/* Square, because a board is square. The grid template is set inline from the
+   square count, so a board of another size still rings correctly. */
+.mono-board {
+  display: grid;
+  /* The ring is the board.
+   *
+   * With eleven equal tracks the hole in the middle was nine of them — four
+   * fifths of the picture was felt, and every square was too small to read the
+   * name on. Nearly double-width edge tracks put the space back where a real
+   * board keeps it. Turned down on a phone, where the squares are already the
+   * whole screen and the middle needs somewhere to put a deed card. */
+  --ring-track: 2.3fr;
+  gap: 2px;
+  aspect-ratio: 1;
+  width: 100%;
+}
+
+.sq {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 1px;
+  padding: 3px 2px 2px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: rgb(var(--raise-rgb) / 70%);
+  overflow: hidden;
+  cursor: pointer;
+  text-align: center;
+  min-width: 0;
+}
+
+.sq:hover {
+  border-color: var(--accent);
+  z-index: 2;
+}
+
+.sq.picked {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 2px var(--accent);
+  z-index: 2;
+}
+
+.sq.mortgaged {
+  background: repeating-linear-gradient(
+    -45deg,
+    rgb(var(--line-rgb) / 6%) 0 4px,
+    transparent 4px 8px
+  );
+}
+
+.sq.k-chance,
+.sq.k-chest {
+  background: color-mix(in oklab, var(--tier-warm) 10%, rgb(var(--raise-rgb) / 70%));
+}
+
+.sq.k-go,
+.sq.k-parking {
+  background: color-mix(in oklab, var(--tier-found) 12%, rgb(var(--raise-rgb) / 70%));
+}
+
+.sq.k-jail,
+.sq.k-gotojail {
+  background: color-mix(in oklab, var(--danger) 10%, rgb(var(--raise-rgb) / 70%));
+}
+
+/* The square's picture, behind everything else on it.
+   Turned well down and desaturated: the square still has to be read as a name
+   and a price at a glance, and a full-strength illustration under six-pixel text
+   is a square you cannot read. It comes back to full strength on the deed card,
+   which is where somebody is actually looking at it. */
+.sq-art {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  opacity: 0.34;
+  filter: saturate(0.75);
+}
+
+.sq-art svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.sq:hover .sq-art,
+.sq.picked .sq-art {
+  opacity: 0.55;
+  filter: none;
+}
+
+/* Dark mode gets less of it, not more: the same picture over a dark surface
+   fights the text far harder than it does over paper. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .sq-art {
+    opacity: 0.24;
+  }
+
+  :root:not([data-theme="light"]) .sq:hover .sq-art,
+  :root:not([data-theme="light"]) .sq.picked .sq-art {
+    opacity: 0.42;
+  }
+}
+
+:root[data-theme="dark"] .sq-art {
+  opacity: 0.24;
+}
+
+:root[data-theme="dark"] .sq:hover .sq-art,
+:root[data-theme="dark"] .sq.picked .sq-art {
+  opacity: 0.42;
+}
+
+/* Everything on the square sits above its picture. Split in two because the band
+   and the corner markers place themselves with `absolute` — giving those
+   `position: relative` here would move every one of them. */
+.sq-icon,
+.sq-name,
+.sq-price,
+.sq-built {
+  position: relative;
+  z-index: 1;
+}
+
+.sq-band,
+.sq-own,
+.sq-flag,
+.sq-here {
+  z-index: 1;
+}
+
+/* The name needs to survive whatever is behind it. A halo rather than a solid
+   plate, so the picture still shows through around the words. */
+.sq-name {
+  text-shadow: 0 0 3px rgb(var(--surface-rgb) / 95%), 0 0 6px rgb(var(--surface-rgb) / 80%);
+}
+
+.sq-price {
+  text-shadow: 0 0 3px rgb(var(--surface-rgb) / 95%);
+}
+
+/* The colour band sits on the edge nearest the middle of the board, which is the
+   side a player reads it from. */
+.sq-band {
+  position: absolute;
+  border-radius: 1px;
+}
+
+.sq[data-edge="bottom"] .sq-band {
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 22%;
+}
+
+.sq[data-edge="top"] .sq-band {
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 22%;
+}
+
+.sq[data-edge="left"] .sq-band {
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: 22%;
+}
+
+.sq[data-edge="right"] .sq-band {
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 22%;
+}
+
+.sq[data-edge="bottom"] {
+  padding-top: 24%;
+}
+
+.sq[data-edge="top"] {
+  padding-bottom: 24%;
+}
+
+.sq[data-edge="left"] {
+  padding-right: 24%;
+}
+
+.sq[data-edge="right"] {
+  padding-left: 24%;
+}
+
+.sq-icon {
+  font-size: clamp(11px, 1.5vw, 19px);
+  line-height: 1;
+}
+
+.sq-name {
+  font-size: clamp(7px, 0.72vw, 11px);
+  line-height: 1.12;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
+.sq-price {
+  font-size: clamp(6px, 0.6vw, 9px);
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.sq-built {
+  font-size: clamp(5px, 0.5vw, 8px);
+  line-height: 1;
+}
+
+/* Who owns it, as a ribbon down the inside edge in their own colour.
+ *
+ * It was their piece emoji in the corner, which is a second thing to learn and
+ * unreadable at eleven pixels. A colour is the thing already learnt — the feed
+ * tints their name with it — and a bar reads without being looked at. */
+.sq-own {
+  position: absolute;
+  background: hsl(var(--own-hue) 62% 52%);
+  z-index: 1;
+}
+
+/* On the outer edge of the square, which is the one side the colour band never
+   uses — the band sits on the side nearest the middle, where it is read from. */
+.sq[data-edge="bottom"] .sq-own {
+  inset: auto 0 0;
+  height: 4px;
+}
+
+.sq[data-edge="top"] .sq-own {
+  inset: 0 0 auto;
+  height: 4px;
+}
+
+.sq[data-edge="left"] .sq-own {
+  inset: 0 auto 0 0;
+  width: 4px;
+}
+
+.sq[data-edge="right"] .sq-own,
+.sq[data-edge="corner"] .sq-own {
+  inset: 0 0 0 auto;
+  width: 4px;
+}
+
+.sq.mortgaged .sq-own {
+  background: hsl(var(--own-hue) 18% 55%);
+}
+
+/* Your own square, called out three ways: a ring, a lift, and a pin. Colour
+   alone would fail anybody who cannot pick this hue out of the other seven. */
+.sq.you-here {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent), 0 6px 14px rgb(31 30 28 / 28%);
+  z-index: 3;
+}
+
+.sq-youmark {
+  position: absolute;
+  top: 0;
+  left: 1px;
+  font-size: clamp(8px, 0.85vw, 13px);
+  z-index: 2;
+  filter: drop-shadow(0 1px 1px rgb(var(--surface-rgb) / 90%));
+}
+
+/* Where the game is, when it is not where you are. */
+.sq.turn-here {
+  box-shadow: 0 0 0 2px hsl(var(--own-hue, 212) 62% 52% / 70%);
+  z-index: 2;
+}
+
+/* Something you hold: a quiet tint, so a glance over the ring shows your empire
+   without competing with the two markers above. */
+.sq.mine-deed {
+  background:
+    linear-gradient(0deg, hsl(var(--own-hue) 60% 50% / 14%), hsl(var(--own-hue) 60% 50% / 14%)),
+    rgb(var(--raise-rgb) / 70%);
+}
+
+.sq-flag {
+  position: absolute;
+  bottom: 1px;
+  left: 2px;
+  font-size: clamp(6px, 0.6vw, 9px);
+}
+
+/* Pieces sit at the bottom of the square, overlapping if there are several —
+   the same crowding a real board has, and it reads the same way. */
+.sq-here {
+  position: absolute;
+  bottom: 1px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+
+/* A player's piece.
+ *
+ * It was the seat's emoji at text size, which told you somebody was on a square
+ * and not who. Now it is a disc, big enough to read from across a desk, filled
+ * with that player's own hue — the same one the feed tints their name with, so
+ * the colour has already been learnt by the time it matters here. */
+:is(.sq-here, .walk-fly) .tok {
+  display: grid;
+  place-items: center;
+  width: clamp(19px, 2.4vw, 30px);
+  height: clamp(19px, 2.4vw, 30px);
+  border-radius: 50%;
+  font-size: clamp(11px, 1.4vw, 17px);
+  line-height: 1;
+  background: hsl(var(--tok-hue) 62% 52%);
+  border: 2px solid rgb(var(--surface-rgb) / 92%);
+  box-shadow: 0 2px 5px rgb(31 30 28 / 40%), inset 0 -2px 4px rgb(0 0 0 / 22%);
+  transition: transform 140ms ease;
+}
+
+/* Your own piece, ringed. The first question anybody asks a board is where am I,
+   and a colour you have to remember is a worse answer than an outline. */
+:is(.sq-here, .walk-fly) .tok.mine {
+  outline: 2px solid var(--accent, #c8552f);
+  outline-offset: 1px;
+  transform: scale(1.1);
+}
+
+.sq-here .tok.jailed {
+  opacity: 0.6;
+  filter: grayscale(0.5);
+}
+
+/* The piece of whoever is up, breathing. One element, and it answers "where is
+   the game right now" from across the desk. */
+.sq-here .tok.onturn {
+  animation: tok-breathe 1.5s ease-in-out infinite;
+}
+
+@keyframes tok-breathe {
+  0%,
+  100% {
+    box-shadow: 0 2px 5px rgb(31 30 28 / 40%), 0 0 0 0 hsl(var(--tok-hue) 70% 55% / 60%);
+  }
+
+  50% {
+    box-shadow: 0 2px 5px rgb(31 30 28 / 40%), 0 0 0 6px hsl(var(--tok-hue) 70% 55% / 0%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sq-here .tok.onturn {
+    animation: none;
+    outline: 2px dashed hsl(var(--tok-hue) 70% 45%);
+    outline-offset: 2px;
+  }
+}
+
+[data-motion="off"] .sq-here .tok.onturn {
+  animation: none;
+  outline: 2px dashed hsl(var(--tok-hue) 70% 45%);
+  outline-offset: 2px;
+}
+
+/* Four people on one square is four discs on a cell that is not four discs wide,
+   so they overlap into a stack rather than wrapping onto a second row and
+   covering the name. */
+.sq-here.crowded {
+  gap: 0;
+}
+
+.sq-here.crowded .tok {
+  margin-inline: -4px;
+}
+
+/* --- the two boards -------------------------------------------------------- */
+
+/* Both boards sit in a positioned wrapper, because both want a button in the
+   corner and one of them wants the dice thrown over the top of it. */
+.mono-flat-wrap,
+.mono-3d-wrap {
+  position: relative;
+}
+
+/* The 3D board's canvas.
+ *
+ * A fixed ratio rather than a height: the board is square and the scene is
+ * framed for it, so letting the element be any shape means either a board with
+ * air above it or one with its far corners cut off. Capped against the viewport
+ * so a laptop still has the action bar and the panels on screen underneath. */
+.mono-3d {
+  width: 100%;
+  aspect-ratio: 1 / 0.84;
+  max-height: min(64vh, 620px);
+  min-height: 300px;
+  border-radius: var(--radius, 10px);
+  overflow: hidden;
+  background:
+    radial-gradient(120% 100% at 50% 0%, rgb(var(--surface-rgb) / 60%), transparent 70%),
+    rgb(var(--surface-2-rgb));
+  cursor: grab;
+  touch-action: none;
+}
+
+.mono-3d:active {
+  cursor: grabbing;
+}
+
+/* What the flat board keeps in the hole in the middle — a drawn card, an
+   auction, the square somebody tapped. Under the 3D board rather than over it:
+   the middle of that one is where the dice land. */
+.board-under {
+  display: grid;
+  gap: var(--pad-sm);
+  margin-top: var(--pad-sm);
+}
+
+.board-under:empty {
+  display: none;
+}
+
+/* Left for the 3D board, which has no squares to cover. */
+.board-tools {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: flex;
+  gap: 4px;
+  z-index: 3;
+}
+
+.view-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgb(var(--surface-rgb) / 82%);
+  backdrop-filter: blur(6px);
+  color: var(--text-dim);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+
+.view-switch:hover {
+  color: var(--text);
+  border-color: var(--text-dim);
+}
+
+/* --- the throw ------------------------------------------------------------- */
+
+/* The layer a throw is drawn into: over the board, outside everything the
+   snapshot pass rebuilds, and deaf to the mouse. */
+.mono-fx {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 6;
+  display: grid;
+  place-items: center;
+}
+
+.mono-fx:empty {
+  display: none;
+}
+
+/* Two dice the size of a fist, in the middle, for the one moment of a turn
+   everybody is waiting on. The readout in the top bar stays where it is — it
+   answers "what was rolled" later, and this answers "what is happening" now. */
+.throw-stage {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: 18px 22px;
+  border-radius: 22px;
+  background: rgb(var(--surface-rgb) / 78%);
+  box-shadow: 0 18px 50px rgb(31 30 28 / 28%);
+  backdrop-filter: blur(10px);
+  animation: throw-in 220ms cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+
+.throw-dice {
+  display: flex;
+  gap: 14px;
+}
+
+.big-die {
+  display: block;
+  width: clamp(56px, 11vmin, 104px);
+  height: clamp(56px, 11vmin, 104px);
+  color: var(--text);
+  filter: drop-shadow(0 8px 14px rgb(31 30 28 / 30%));
+}
+
+.big-die svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* Each die tumbles on its own axis and at its own rate, so the pair reads as two
+   objects in the air rather than one picture wobbling. */
+.throw-stage.rolling .big-die:first-child {
+  animation: big-tumble 0.34s linear infinite;
+}
+
+.throw-stage.rolling .big-die:last-child {
+  animation: big-tumble 0.27s linear infinite reverse;
+}
+
+.throw-stage.landed .big-die {
+  animation: big-land 420ms cubic-bezier(0.2, 1.5, 0.35, 1);
+}
+
+.big-total {
+  min-width: 2.2em;
+  padding: 2px 12px;
+  border-radius: 999px;
+  background: var(--accent, #c8552f);
+  color: #fff;
+  font-size: clamp(17px, 3.4vmin, 26px);
+  font-weight: 800;
+  text-align: center;
+  opacity: 0;
+  transform: scale(0.6);
+}
+
+/* The total is the answer, so it arrives when the dice stop and not before: a
+   number counting up while they tumble is a spoiler and a distraction at once. */
+.throw-stage.landed .big-total {
+  animation: total-pop 360ms cubic-bezier(0.2, 1.6, 0.35, 1) forwards;
+}
+
+.throw-stage.leaving {
+  animation: throw-out 240ms ease forwards;
+}
+
+@keyframes throw-in {
+  from {
+    opacity: 0;
+    transform: scale(0.82) translateY(-14px);
+  }
+}
+
+@keyframes throw-out {
+  to {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+}
+
+@keyframes big-tumble {
+  from {
+    transform: rotate(0) scale(1.02);
+  }
+  to {
+    transform: rotate(360deg) scale(1.02);
+  }
+}
+
+@keyframes big-land {
+  0% {
+    transform: scale(1.24) rotate(-7deg);
+  }
+  55% {
+    transform: scale(0.94) rotate(2deg);
+  }
+  100% {
+    transform: scale(1) rotate(0);
+  }
+}
+
+@keyframes total-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Somebody who asked for less motion gets the result and none of the theatre:
+   the dice appear on their faces, the total is simply there. */
+@media (prefers-reduced-motion: reduce) {
+  .throw-stage,
+  .throw-stage.rolling .big-die,
+  .throw-stage.landed .big-die,
+  .throw-stage.landed .big-total {
+    animation: none;
+  }
+
+  .big-total {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+:root[data-motion="off"] .throw-stage,
+:root[data-motion="off"] .throw-stage .big-die,
+:root[data-motion="off"] .throw-stage .big-total {
+  animation: none;
+}
+
+:root[data-motion="off"] .big-total {
+  opacity: 1;
+  transform: none;
+}
+
+/* --- the middle ------------------------------------------------------------ */
+
+/* The middle of a 40-square ring is nine cells by nine, which is far more room
+   than a deed card needs. Its content is centred rather than pinned to the top
+   edge, so an empty board reads as a board and not as a panel that failed. */
+.board-middle {
+  position: relative;
+  display: grid;
+  align-content: center;
+  gap: var(--pad-sm);
+  padding: var(--pad);
+  overflow-y: auto;
+  border-radius: var(--radius-sm);
+  background: rgb(var(--surface-2-rgb) / 55%);
+  border: 1px solid var(--border);
+}
+
+/* The board's own picture, filling the hole in the middle. Fitted rather than
+   cropped, turned down far enough that the card and the deed detail on top of it
+   stay the things you read, and inert to the mouse so clicking through it works. */
+.board-art {
+  position: absolute;
+  inset: var(--pad);
+  z-index: 0;
+  opacity: 0.42;
+  pointer-events: none;
+}
+
+.board-art svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.board-middle > *:not(.board-art) {
+  position: relative;
+  z-index: 1;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .board-art {
+    opacity: 0.3;
+  }
+}
+
+[data-theme="dark"] .board-art {
+  opacity: 0.3;
+}
+
+.board-title {
+  display: grid;
+  justify-items: center;
+  text-align: center;
+  gap: 2px;
+}
+
+.board-title .board-icon {
+  font-size: 34px;
+  line-height: 1;
+}
+
+.board-title strong {
+  font-family: var(--display);
+  font-size: 20px;
+}
+
+.mono-card {
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: var(--pad-sm) var(--pad);
+  background: color-mix(in oklab, var(--tier-warm) 13%, rgb(var(--raise-rgb) / 85%));
+  box-shadow: var(--shadow);
+}
+
+.mono-card.chest {
+  background: color-mix(in oklab, var(--danger) 11%, rgb(var(--raise-rgb) / 85%));
+}
+
+.mono-card .card-head {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.mono-card p {
+  margin: 4px 0 0;
+  display: flex;
+  gap: 7px;
+  align-items: flex-start;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.mono-card .card-icon {
+  font-size: 19px;
+  line-height: 1.2;
+}
+
+.space-detail {
+  border-top: 1px solid var(--border);
+  padding-top: var(--pad-sm);
+  display: grid;
+  gap: 6px;
+}
+
+/* The deed card's postcard. Full strength, 5:3, and the one place the drawing is
+   shown at the size it was drawn for. */
+.detail-art {
+  display: block;
+  aspect-ratio: 5 / 3;
+  width: 100%;
+  /* A postcard, not a poster: on a wide board 5:3 of the middle is half the
+     card, and the deed is what somebody clicked the square to read. The drawing
+     is `slice`, so a shorter box crops it rather than squashing it. */
+  max-height: 180px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+}
+
+.detail-art svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.detail-head {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+}
+
+.detail-head .detail-icon {
+  font-size: 27px;
+  line-height: 1;
+}
+
+.detail-head small {
+  display: block;
+  color: var(--text-dim);
+}
+
+.detail-rows {
+  display: grid;
+  gap: 3px;
+  font-size: 13px;
+}
+
+.detail-row {
+  display: flex;
+  gap: 7px;
+  align-items: baseline;
+}
+
+/* --- what to do next ------------------------------------------------------- */
+
+.mono-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding: var(--pad-sm) var(--pad);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: rgb(var(--raise-rgb) / 60%);
+}
+
+.act-say {
+  display: flex;
+  flex-direction: column;
+  font-size: 14px;
+  font-weight: 600;
+  margin-right: auto;
+}
+
+.act-say small {
+  font-weight: 400;
+}
+
+.danger-text {
+  color: var(--danger);
+}
+
+/* --- deeds, auction, trades ------------------------------------------------ */
+
+.mono-panels {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--gap);
+}
+
+.mono-panel {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: rgb(var(--surface-rgb) / var(--surface-alpha));
+}
+
+/* The rules panel on the board. Its summary is dressed as a panel header, so a
+   folded panel sits in the row with the other two rather than looking like a
+   stray link — and carries this table's terms, which is what the closed state is
+   for. */
+.mono-help > summary {
+  cursor: pointer;
+  padding: var(--pad-sm) var(--pad);
+  font-size: 11.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-dim);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.mono-help[open] > summary {
+  border-bottom: 1px solid var(--border);
+}
+
+.mono-help > summary small {
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.mono-help .help-head {
+  margin: 0 0 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+}
+
+.mono-help .rule-brief + .help-head {
+  margin-top: var(--pad);
+}
+
+/* The value column — "1.500K", "đang bật" — pushed to the right so the three
+   house rules read as a settings list rather than as prose. */
+.mono-help .rule-value {
+  margin-left: auto;
+  padding-left: 8px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+/* The button that opens the rulebook, under this table's terms: full width,
+   because it is the one thing in the panel that leads somewhere. */
+.mono-help .rule-open {
+  width: 100%;
+  margin: var(--pad-sm) 0 var(--pad);
+}
+
+/* The rulebook itself. Two columns where there is room — the long rules on the
+   right, this table's numbers and the screen guide on the left, so the terms
+   stay in sight while the rules are being read. */
+.modal.mono-book {
+  width: min(980px, 100%);
+  max-height: min(86vh, 820px);
+}
+
+.mono-book .book-cols {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 900px) {
+  .mono-book .book-cols {
+    grid-template-columns: 240px minmax(0, 1fr);
+  }
+
+  .mono-book .book-main .rule-full {
+    columns: 2;
+    column-gap: 22px;
+  }
+
+  /* A section must not be split down the middle of a column break: half of
+     "Nhà tù" at the bottom of one column and half at the top of the next is
+     unreadable in a way plain prose is not. */
+  .mono-book .rule-full section {
+    break-inside: avoid;
+    -webkit-column-break-inside: avoid;
+  }
+}
+
+.rule-full section + section {
+  margin-top: var(--pad);
+}
+
+.rule-full h5 {
+  margin: 0 0 5px;
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.rule-full p {
+  margin: 0 0 5px 22px;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--text-dim);
+  text-indent: -10px;
+}
+
+/* A hanging dot instead of a list marker: the indent above pulls the first line
+   back out, so the bullet sits in the gutter without a <ul> around it. */
+.rule-full p::before {
+  content: "·";
+  margin-right: 6px;
+  color: var(--text-dim);
+}
+
+.rule-full p:last-child {
+  margin-bottom: 0;
+}
+
+.deed {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px var(--pad-sm);
+  border-bottom: 1px solid var(--border);
+}
+
+.deed:last-child {
+  border-bottom: 0;
+}
+
+.deed-icon {
+  font-size: 19px;
+  line-height: 1;
+}
+
+.deed-name {
+  min-width: 0;
+  flex: 1;
+}
+
+.deed-name strong {
+  display: block;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.deed-name small {
+  font-size: 11px;
+}
+
+.deed-acts {
+  display: flex;
+  gap: 3px;
+  flex: 0 0 auto;
+}
+
+.deed-acts button {
+  padding: 2px 6px;
+}
+
+.auction {
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  padding: var(--pad-sm);
+  display: grid;
+  gap: 6px;
+  background: color-mix(in oklab, var(--accent) 8%, rgb(var(--raise-rgb) / 85%));
+}
+
+.auction-head {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  font-size: 14px;
+}
+
+.auction-high {
+  font-size: 13px;
+}
+
+.auction-form {
+  display: flex;
+  gap: 6px;
+}
+
+.auction-form input {
+  min-width: 0;
+  flex: 1;
+}
+
+.trade-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--pad-sm);
+  padding: var(--pad-sm) 0;
+}
+
+.trade-cols > div {
+  display: grid;
+  gap: 3px;
+  align-content: start;
+}
+
+.trade-tick {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  font-size: 12px;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.trade-tick span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.offer {
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: var(--pad-sm);
+  margin-bottom: var(--pad-sm);
+  display: grid;
+  gap: 5px;
+  background: rgb(var(--raise-rgb) / 70%);
+}
+
+.offer.sent {
+  opacity: 0.72;
+}
+
+.offer-rows {
+  font-size: 12px;
+  display: grid;
+  gap: 2px;
+}
+
+/* --- setup ----------------------------------------------------------------- */
+
+.rule-list {
+  display: grid;
+  gap: 5px;
+}
+
+.rule-row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 6px var(--pad-sm);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.rule-row:hover {
+  border-color: var(--accent);
+}
+
+.rule-row .rule-icon {
+  font-size: 17px;
+  line-height: 1.2;
+}
+
+.rule-row strong {
+  display: block;
+  font-size: 13px;
+}
+
+.rule-row small {
+  display: block;
+  font-size: 11px;
+}
+
+.rule-brief {
+  display: grid;
+  gap: 5px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.rule-brief-row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+/* The "write your own board" box: folded away, because four boards ship and one
+   of them is already picked. Open, it is an ordinary field. */
+.mono-maker > summary {
+  cursor: pointer;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-dim);
+  letter-spacing: 0.02em;
+}
+
+.mono-maker[open] > summary {
+  margin-bottom: var(--pad-sm);
+}
+
+.mono-maker > summary small {
+  font-weight: 400;
+}
+
+.mono-seats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.mono-seats .seat {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  font-size: 13px;
+  background: rgb(var(--raise-rgb) / 60%);
+}
+
+.mono-seats .seat.you {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.notice.good {
+  background: color-mix(in oklab, var(--tier-found) 16%, rgb(var(--surface-rgb) / 90%));
+}
+
+.map-errors {
+  margin: 4px 0 0;
+  padding-left: 18px;
+  font-size: 12px;
+  display: grid;
+  gap: 2px;
+}
+
+/* The board is unreadable in a narrow column, so below this width it takes the
+   whole page and the rails stack under it. */
+@media (max-width: 1180px) {
+  .room.board {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .room.board .rail-left,
+  .room.board .split-right {
+    order: 2;
+  }
+
+  .room.board .mono-col {
+    order: 1;
+  }
+}
+
+/* --- whose turn is it -------------------------------------------------------
+ *
+ * The one thing the running game could not tell you at a glance. It used to be a
+ * chip in a banner full of chips; now it is a strip in the colour of whoever is
+ * up, and when that is you it is the loudest thing on the page. */
+
+.turn-bar {
+  display: grid;
+  gap: var(--pad-sm);
+  padding: var(--pad-sm) var(--pad);
+  border: 1px solid var(--border);
+  border-left: 5px solid hsl(var(--who-hue) 62% 50%);
+  border-radius: var(--radius);
+  background:
+    linear-gradient(90deg, hsl(var(--who-hue) 62% 50% / 12%), transparent 55%),
+    rgb(var(--surface-rgb) / var(--surface-alpha));
+}
+
+/* Your turn: brighter, thicker, and breathing. Three signals, so the one that
+   works for you is there — a colour-blind player still gets the outline and the
+   word, and somebody who has muted the tab still gets the pulse. */
+.turn-bar.mine {
+  border-color: hsl(var(--who-hue) 62% 50%);
+  box-shadow: 0 0 0 2px hsl(var(--who-hue) 62% 50% / 35%);
+  animation: turn-glow 2.4s ease-in-out infinite;
+}
+
+@keyframes turn-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 2px hsl(var(--who-hue) 62% 50% / 35%);
+  }
+
+  50% {
+    box-shadow: 0 0 0 6px hsl(var(--who-hue) 62% 50% / 8%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .turn-bar.mine {
+    animation: none;
+  }
+}
+
+[data-motion="off"] .turn-bar.mine {
+  animation: none;
+}
+
+.turn-row {
+  display: flex;
+  align-items: center;
+  gap: var(--pad);
+  flex-wrap: wrap;
+}
+
+.turn-say {
+  display: flex;
+  align-items: center;
+  gap: var(--pad-sm);
+  min-width: 0;
+}
+
+.turn-tok {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  font-size: 19px;
+  line-height: 1;
+  background: hsl(var(--who-hue) 62% 52%);
+  border: 2px solid rgb(var(--surface-rgb) / 92%);
+  box-shadow: 0 2px 5px rgb(31 30 28 / 35%);
+  flex: 0 0 auto;
+}
+
+.turn-words {
+  display: grid;
+  min-width: 0;
+}
+
+.turn-words strong {
+  font-size: 15px;
+  letter-spacing: 0.01em;
+}
+
+.turn-bar.mine .turn-words strong {
+  font-size: 19px;
+  color: hsl(var(--who-hue) 62% 38%);
+  letter-spacing: 0.04em;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .turn-bar.mine .turn-words strong {
+    color: hsl(var(--who-hue) 75% 70%);
+  }
+}
+
+:root[data-theme="dark"] .turn-bar.mine .turn-words strong {
+  color: hsl(var(--who-hue) 75% 70%);
+}
+
+.turn-words small {
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+/* How long before the board plays it for you. Its own element so the seconds can
+   be written into it four times a second without rebuilding the strip. */
+.turn-clock {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgb(var(--surface-2-rgb) / 70%);
+  white-space: nowrap;
+}
+
+.turn-clock.machine {
+  border-color: hsl(212 60% 50% / 45%);
+}
+
+.clock-num {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.clock-num.urgent {
+  color: var(--danger, #b8442c);
+}
+
+/* The queue. The second question after "is it me" is "how long have I got", and
+   the answer is a row of small chips in turn order. */
+.turn-queue {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.q-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 150px;
+  padding: 1px 8px 1px 3px;
+  border-radius: 999px;
+  border: 1px solid hsl(var(--who-hue) 45% 55% / 45%);
+  background: hsl(var(--who-hue) 55% 50% / 12%);
+  font-size: 11px;
+}
+
+.q-chip.you {
+  border-color: var(--accent);
+  font-weight: 700;
+}
+
+.q-tok {
+  display: grid;
+  place-items: center;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  font-size: 10px;
+  line-height: 1;
+  background: hsl(var(--who-hue) 62% 52%);
+}
+
+.q-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The "play for me" switch. On screen all game, because the point is to tick it
+   before you get up, not after somebody has waited for you. */
+.auto-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgb(var(--surface-2-rgb) / 60%);
+  cursor: pointer;
+  user-select: none;
+}
+
+.auto-switch.on {
+  border-color: hsl(212 60% 50%);
+  background: hsl(212 60% 50% / 14%);
+  font-weight: 600;
+}
+
+.auto-switch input {
+  accent-color: hsl(212 60% 45%);
+  margin: 0;
+}
+
+/* --- you are here ---------------------------------------------------------- */
+
+/* Which square am I on. Unanswerable from a disc on a grid of forty, so the
+   board says it in words above itself — yours first, then whoever is moving. */
+.here-bar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: var(--pad-sm);
+}
+
+.here-chip {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-areas:
+    "label label"
+    "icon name"
+    "icon note";
+  gap: 0 8px;
+  padding: var(--pad-sm) var(--pad-sm) var(--pad-sm) 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: rgb(var(--surface-rgb) / var(--surface-alpha));
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.here-chip:hover,
+.here-chip.you {
+  border-color: var(--accent);
+}
+
+/* The colour group of the square, down the left edge — the same band the square
+   itself wears on the board, so the two are obviously the same place. */
+.here-band {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 5px;
+  background: var(--band, transparent);
+}
+
+.here-label {
+  grid-area: label;
+  color: var(--text-dim);
+}
+
+.here-icon {
+  grid-area: icon;
+  align-self: center;
+  font-size: 22px;
+  line-height: 1;
+}
+
+.here-name {
+  grid-area: name;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.here-note {
+  grid-area: note;
+}
+
+/* --- start over, by agreement --------------------------------------------- */
+
+.restart-vote {
+  display: grid;
+  gap: var(--pad-sm);
+  padding: var(--pad);
+  border: 1px solid hsl(32 70% 50% / 55%);
+  border-radius: var(--radius);
+  background: hsl(32 70% 50% / 10%);
+}
+
+.rv-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--pad-sm);
+  flex-wrap: wrap;
+}
+
+.rv-tally,
+.rv-acts {
+  display: flex;
+  gap: var(--pad-sm);
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.chip.ok {
+  border-color: hsl(140 45% 45%);
+  background: hsl(140 45% 45% / 14%);
+}
+
+/* --- the table, as a table ------------------------------------------------ */
+
+.pitem.seat {
+  border-left: 4px solid hsl(var(--who-hue) 62% 50%);
+}
+
+.pitem.seat.onturn {
+  background: hsl(var(--who-hue) 62% 50% / 12%);
+}
+
+.pitem.seat.bust {
+  opacity: 0.55;
+}
+
+/* Colour and cursor in one element: on their turn the piece becomes an arrow. */
+.seat-chip {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  font-size: 14px;
+  line-height: 1;
+  background: hsl(var(--who-hue) 62% 52%);
+  border: 2px solid rgb(var(--surface-rgb) / 90%);
+  flex: 0 0 auto;
+}
+
+.pitem.seat.you .seat-chip {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.badge.auto {
+  border-color: hsl(212 60% 50%);
+  background: hsl(212 60% 50% / 16%);
+}
+
+.badge.jailed {
+  border-color: hsl(8 55% 50%);
+  background: hsl(8 55% 50% / 14%);
+}
+
+.turn-now {
+  color: hsl(var(--who-hue) 62% 38%);
+  font-weight: 700;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .turn-now {
+    color: hsl(var(--who-hue) 75% 70%);
+  }
+}
+
+:root[data-theme="dark"] .turn-now {
+  color: hsl(var(--who-hue) 75% 70%);
+}
+
+.watchers {
+  border-top: 1px solid var(--border);
+}
+
+.watch-names {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+/* --- your deeds, by colour ------------------------------------------------ */
+
+/* In the left rail now, under the table, because "what do I own and can I build
+   on it" is the second thing anybody looks at and it used to be below a board
+   you had to scroll past. */
+.mono-panel.estate {
+  min-width: 0;
+}
+
+.deed-group {
+  border: 1px solid var(--border);
+  border-left: 5px solid var(--band, var(--border));
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  margin-bottom: var(--pad-sm);
+}
+
+.dg-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 7px;
+  background: rgb(var(--surface-2-rgb) / 70%);
+  font-size: 11px;
+}
+
+.dg-swatch {
+  width: 11px;
+  height: 11px;
+  border-radius: 3px;
+  background: var(--band, var(--border));
+  border: 1px solid rgb(var(--line-rgb) / 18%);
+  flex: 0 0 auto;
+}
+
+.dg-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-dim);
+}
+
+.dg-count {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-dim);
+}
+
+/* A complete group unlocks everything, so it is the one number on this panel
+   that is allowed to shout. */
+.dg-count.whole {
+  color: hsl(140 50% 34%);
+  font-weight: 700;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .dg-count.whole {
+    color: hsl(140 50% 62%);
+  }
+}
+
+:root[data-theme="dark"] .dg-count.whole {
+  color: hsl(140 50% 62%);
+}
+
+.deed {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 5px;
+  border-top: 1px solid rgb(var(--line-rgb) / 8%);
+}
+
+.deed:first-of-type {
+  border-top: 0;
+}
+
+.deed.picked {
+  background: rgb(var(--raise-rgb) / 85%);
+}
+
+.deed.hocked {
+  opacity: 0.68;
+}
+
+/* The whole row is the way to the square on the board, so it is a button —
+   reachable by keyboard, and announced as an action. */
+.deed-open {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 2px;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+
+.deed-open:hover .deed-name strong {
+  text-decoration: underline;
+}
+
+.visit-meter {
+  color: hsl(32 60% 40%);
+}
+
+.unlocked {
+  color: hsl(140 50% 36%);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .visit-meter {
+    color: hsl(32 70% 66%);
+  }
+
+  :root:not([data-theme="light"]) .unlocked {
+    color: hsl(140 50% 62%);
+  }
+}
+
+:root[data-theme="dark"] .visit-meter {
+  color: hsl(32 70% 66%);
+}
+
+:root[data-theme="dark"] .unlocked {
+  color: hsl(140 50% 62%);
+}
+
+/* --- the feed and the chat, apart ----------------------------------------- */
+
+/* One list of both was unreadable at a board game's pace: a question somebody
+   asked the table went three screens up in dice rolls inside a minute. Two
+   panels, each scrolling on its own, and neither can bury the other. */
+.split-right {
+  display: grid;
+  grid-template-rows: minmax(120px, 1fr) minmax(180px, 1fr);
+  gap: var(--gap);
+  min-height: 0;
+  min-width: 0;
+}
+
+.split-right > .panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* The chat half hosts the emoji palette, which opens upwards out of the dock and
+   has to be allowed out of the panel — the same exemption `.panel.side-right`
+   already carries for the unsplit column. */
+.split-right > .chat-panel {
+  overflow: visible;
+}
+
+.split-right .feed {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+@media (max-width: 1180px) {
+  .split-right {
+    grid-template-rows: auto auto;
+  }
+
+  .split-right .feed {
+    max-height: 40vh;
+  }
+}
+
+/* The deed card in the hole in the middle of the board has less room than the
+   same card in the panel under the 3D board, so its postcard is smaller here. */
+.board-middle .detail-art {
+  max-height: 132px;
+}
+
+/* --- a smaller middle on a small screen ---------------------------------- */
+
+/* On a narrow screen the deed card is not in the middle any more — it is in a
+   panel under the board — so the middle only has to hold the emblem, and the
+   ring can take much more of the width. Which it needs: forty squares across
+   430 pixels is not many pixels each. */
+@media (max-width: 900px) {
+  .mono-board {
+    --ring-track: 2.9fr;
+  }
+
+  /* Nothing but the emblem behind it, so it needs no plate of its own. */
+  .board-middle.bare {
+    border: 0;
+    background: none;
+    overflow: visible;
+  }
+
+  /* At this size the price does not fit under the name and the name is the one
+     that matters — the deed card under the board carries the number. */
+  .sq-price {
+    display: none;
+  }
+}
+
+/* A watcher's banner. Not a warning and not an error: they are welcome, they
+   just have no seat until the table deals again. */
+.watch-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--pad-sm);
+  padding: var(--pad-sm) var(--pad);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  background: rgb(var(--surface-2-rgb) / 55%);
+}
+
+.wb-eye {
+  font-size: 20px;
+  line-height: 1;
+}
+
+/* An auction, at the top of the page under the action bar rather than in the
+   hole in the middle of the board. It is a decision on a clock for everybody at
+   once, so it goes where the other timed decisions are; on a wide screen the
+   three parts — the lot, the standing bid, the box you type into — fit on one
+   line, which is what lets it sit in the stack without pushing the board down. */
+.auction.top {
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  border-left: 5px solid var(--accent);
+}
+
+.auction.top .auction-form input {
+  width: 8ch;
+  flex: 0 0 auto;
+}
+
+@media (max-width: 760px) {
+  .auction.top {
+    grid-template-columns: 1fr;
+  }
+
+  .auction.top .auction-form input {
+    width: auto;
+    flex: 1;
+  }
+}
+
+/* --- the flat board, moving ------------------------------------------------ */
+
+/* A piece in mid-walk, flown across the effects layer between the rectangles of
+   two squares. It borrows the disc from `.sq-here .tok` below rather than
+   restating it, so a walking piece is the same object that lands. */
+.walk-fly {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 3;
+  filter: drop-shadow(0 4px 6px rgb(31 30 28 / 35%));
+  will-change: transform;
+}
+
+/* The piece the walk is standing in for, held back until it arrives. Hidden
+   rather than removed: the square keeps the space, so the row of discs on a busy
+   square does not shuffle sideways as somebody lands on it. */
+.sq-here .tok.walking {
+  visibility: hidden;
+}
+
+/* A square, hit. Short enough to read as an arrival rather than as a state. */
+.sq.just-landed {
+  animation: sq-land 620ms ease-out;
+  z-index: 3;
+}
+
+@keyframes sq-land {
+  0% {
+    box-shadow: inset 0 0 0 3px var(--accent);
+    transform: scale(1.06);
+  }
+
+  100% {
+    box-shadow: inset 0 0 0 0 transparent;
+    transform: scale(1);
+  }
+}
+
+/* What it cost, or what it paid, rising off the square it happened on. The board
+   said none of this: rent and salary were a line in the feed and a different
+   number in the sidebar, and neither of those is where you were looking. */
+.flat-float {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 4;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: rgb(var(--surface-rgb));
+  background: hsl(var(--tok-hue) 62% 42%);
+  box-shadow: 0 2px 6px rgb(31 30 28 / 35%);
+  animation: flat-float 1500ms ease-out forwards;
+}
+
+.flat-float.down {
+  background: #a2372a;
+}
+
+.flat-float.up {
+  background: #2f7d4f;
+}
+
+@keyframes flat-float {
+  0% {
+    opacity: 0;
+    translate: 0 6px;
+  }
+
+  18% {
+    opacity: 1;
+    translate: 0 -6px;
+  }
+
+  75% {
+    opacity: 1;
+    translate: 0 -34px;
+  }
+
+  100% {
+    opacity: 0;
+    translate: 0 -48px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sq.just-landed {
+    animation: none;
+  }
+}
+
+[data-motion="off"] .sq.just-landed {
+  animation: none;
+}
+
+/* --- Khí vận, the lucky draw ----------------------------------------------- */
+
+/* The reveal: a card face riffling through emoji, then the rarity, then what it
+   actually says. It sits in the same layer as the dice and comes up after them,
+   because a card is the consequence of a throw and two animations in the middle
+   of one board is one too many. */
+.gacha {
+  --tier: #8a8580;
+  position: absolute;
+  inset: 0;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 4px;
+  padding: 18px 22px;
+  z-index: 5;
+  pointer-events: none;
+  text-align: center;
+  /* Nudged down off the buttons. The layer spans the whole room, so dead centre
+     lands on the action bar rather than on the board it is about. */
+  translate: 0 min(90px, 9vh);
+}
+
+.gacha::before {
+  content: "";
+  position: absolute;
+  inset: 50% 50%;
+  width: min(320px, 78%);
+  height: 232px;
+  translate: -50% -50%;
+  border: 2px solid var(--tier);
+  border-radius: 22px;
+  background: rgb(var(--surface-rgb) / 96%);
+  box-shadow: 0 18px 44px rgb(31 30 28 / 34%), 0 0 0 6px color-mix(in oklab, var(--tier) 22%,
+    transparent);
+}
+
+.gacha > * {
+  position: relative;
+}
+
+.gacha.t-common {
+  --tier: #8a8580;
+}
+
+.gacha.t-rare {
+  --tier: #2f6fb5;
+}
+
+.gacha.t-epic {
+  --tier: #7b47b8;
+}
+
+.gacha.t-legend {
+  --tier: #c9962a;
+}
+
+.gacha-head {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  font-size: 13px;
+}
+
+.gacha-face {
+  font-size: 54px;
+  line-height: 1.1;
+  filter: drop-shadow(0 3px 5px rgb(31 30 28 / 30%));
+}
+
+/* Riffling. A shake rather than a spin: an emoji rotated on its axis is an emoji
+   nobody can read, and the point of the blur is that you cannot read it yet. */
+.gacha.rolling .gacha-face {
+  animation: gacha-riffle 140ms steps(2, end) infinite;
+}
+
+@keyframes gacha-riffle {
+  0% {
+    translate: -3px 0;
+    scale: 0.94;
+  }
+
+  100% {
+    translate: 3px 0;
+    scale: 1.02;
+  }
+}
+
+.gacha.landed .gacha-face {
+  animation: gacha-pop 420ms cubic-bezier(0.2, 1.5, 0.4, 1);
+}
+
+@keyframes gacha-pop {
+  0% {
+    scale: 0.5;
+  }
+
+  100% {
+    scale: 1;
+  }
+}
+
+.gacha-tier {
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: var(--tier);
+}
+
+.gacha-words {
+  max-width: min(280px, 70%);
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.gacha.leaving {
+  opacity: 0;
+  transition: opacity 300ms ease;
+}
+
+/* The rarity, on the card that stays in the middle of the board after the reveal
+   has faded — the half of a draw people react to. */
+.tier-chip {
+  display: inline-flex;
+  gap: 3px;
+  align-items: center;
+  padding: 0 6px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  color: rgb(var(--surface-rgb));
+  background: #8a8580;
+}
+
+.mono-card.t-rare .tier-chip {
+  background: #2f6fb5;
+}
+
+.mono-card.t-epic .tier-chip {
+  background: #7b47b8;
+}
+
+.mono-card.t-legend .tier-chip {
+  background: #c9962a;
+}
+
+.badge.shield {
+  background: color-mix(in oklab, #2f6fb5 18%, rgb(var(--raise-rgb)));
+  color: #24547f;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .badge.shield {
+    color: #9ec8ee;
+  }
+}
+
+:root[data-theme="dark"] .badge.shield {
+  color: #9ec8ee;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gacha.rolling .gacha-face,
+  .gacha.landed .gacha-face {
+    animation: none;
+  }
+}

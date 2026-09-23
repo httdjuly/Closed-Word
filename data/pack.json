@@ -1,0 +1,10 @@
+{
+  "source": "https://dl.fbaipublicfiles.com/fasttext/vectors-english/wiki-news-300d-1M.vec.zip",
+  "words": 50039,
+  "dim": 300,
+  "sample": false,
+  "bytes": 60500048,
+  "createdAt": "2026-08-12T12:02:53.421Z",
+  "composedTerms": 39,
+  "composedFrom": "data/terms-custom.txt"
+}

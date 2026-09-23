@@ -1,0 +1,23 @@
+# Vector data: large, regenerate with `deno task ingest`
+data/*.bin
+data/*.vec
+data/*.vec.zip
+data/*.gz
+data/raw/
+
+# Keep the curated word pool and the pack manifest
+!data/secret-words.txt
+!data/pack.json
+
+# Local settings, and possibly a Confluence token. .env.example is committed.
+.env
+.env.local
+
+.DS_Store
+
+# Runtime logs. Rotated daily and swept after CLOSEWORD_LOG_KEEP_DAYS.
+logs/
+*.log
+
+# Output of `deno task build:prod`.
+dist/

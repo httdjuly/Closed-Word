@@ -1,0 +1,45 @@
+{
+  "name": "closeword-party",
+  "version": "0.1.0",
+  "exports": "./server/main.ts",
+  "tasks": {
+    "start": "deno run --env-file=.env --allow-net --allow-read --allow-write=logs --allow-env --allow-run --allow-sys=networkInterfaces server/main.ts",
+    "dev": "deno run --env-file=.env --watch=server/,shared/,client/ --allow-net --allow-read --allow-write=logs --allow-env --allow-run --allow-sys=networkInterfaces server/main.ts",
+    "ingest": "deno run --env-file=.env --allow-net --allow-read --allow-write --allow-env scripts/ingest_vectors.ts",
+    "ingest:custom": "deno run --env-file=.env --allow-net --allow-read --allow-write --allow-env scripts/ingest_confluence.ts",
+    "words:ai": "deno run --env-file=.env --allow-read --allow-write --allow-run --allow-env scripts/generate_words.ts",
+    "curate": "deno run --env-file=.env --allow-read --allow-write --allow-run --allow-env scripts/curate_words.ts",
+    "tag:adult": "deno run --env-file=.env --allow-read --allow-write --allow-env scripts/tag_words.ts",
+    "pack:terms": "deno run --env-file=.env --allow-read --allow-write --allow-env scripts/extend_pack.ts",
+    "coverage": "deno run --allow-read scripts/coverage.ts",
+    "sessions:prune": "deno run --allow-read --allow-write --allow-env scripts/prune_sessions.ts",
+    "sim": "deno run --env-file=.env --allow-net --allow-env scripts/simulate_players.ts",
+    "test": "deno test --allow-read --allow-write --allow-net --allow-env --allow-run --allow-sys=networkInterfaces",
+    "test:changed": "deno test --changed --allow-read --allow-write --allow-net --allow-env --allow-run --allow-sys=networkInterfaces",
+    "check": "deno check server/main.ts scripts/*.ts",
+    "prod": "CLOSEWORD_AI=off deno run --env-file=.env --allow-net --allow-read --allow-write=logs --allow-env --allow-sys=networkInterfaces server/main.ts",
+    "build:prod": "deno run --allow-read --allow-write --allow-env scripts/build_prod.ts"
+  },
+  "compilerOptions": {
+    "strict": true,
+    "noUncheckedIndexedAccess": false
+  },
+  "fmt": {
+    "lineWidth": 100,
+    "semiColons": true,
+    "singleQuote": false,
+    "exclude": ["data/", "client/vendor/"]
+  },
+  "lint": {
+    "exclude": ["data/", "client/vendor/"],
+    "rules": {
+      "tags": ["recommended"]
+    }
+  },
+  "imports": {
+    "@std/assert": "jsr:@std/assert@^1.0.8",
+    "@std/path": "jsr:@std/path@^1.0.8",
+    "@std/media-types": "jsr:@std/media-types@^1.1.0",
+    "@std/streams": "jsr:@std/streams@^1.0.8"
+  }
+}

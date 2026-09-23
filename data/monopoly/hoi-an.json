@@ -1,0 +1,63 @@
+{
+  "schema": "closeword-monopoly-map/1",
+  "id": "hoi-an",
+  "name": "Hội An",
+  "icon": "🏮",
+  "region": "Phố cổ",
+  "note": "Đường phố và danh thắng phố cổ Hội An",
+
+  "groups": [
+    { "name": "Vùng ven", "icon": "🌾" },
+    { "name": "Cửa ngõ", "icon": "🚧" },
+    { "name": "Chợ và bến", "icon": "🧺" },
+    { "name": "Phố đèn lồng", "icon": "🏮" },
+    { "name": "Phố cổ", "icon": "🏚️" },
+    { "name": "Bãi biển", "icon": "🏖️" },
+    { "name": "Trung tâm", "icon": "🎏" },
+    { "name": "Danh thắng", "icon": "🌉" }
+  ],
+
+  "places": [
+    { "name": "Đường Lý Thái Tổ", "icon": "🛣️", "note": "Đường vào thành phố", "scene": "duongpho" },
+    { "name": "Đường Cửa Đại", "icon": "🚧", "note": "Nối phố cổ với biển" },
+
+    { "name": "Đường Trần Nhân Tông", "icon": "🌾", "scene": "ruong" },
+    { "name": "Đường Hai Bà Trưng", "icon": "🌿", "scene": "rung" },
+    { "name": "Đường Thái Phiên", "icon": "🏡" },
+
+    { "name": "Đường Phan Chu Trinh", "icon": "🧺", "note": "Gần chợ Hội An", "scene": "cho" },
+    { "name": "Đường Trần Cao Vân", "icon": "🥬", "scene": "cho" },
+    { "name": "Đường Nguyễn Huệ", "icon": "🍲", "note": "Quán ăn đêm", "scene": "phoco" },
+
+    { "name": "Đường Lê Lợi", "icon": "🏮", "scene": "denlong" },
+    { "name": "Đường Nguyễn Thái Học", "icon": "🪔", "note": "Nhà cổ và tiệm đèn lồng", "scene": "denlong" },
+    { "name": "Đường Trần Phú", "icon": "🎎", "note": "Trục chính phố cổ", "scene": "phoco" },
+
+    { "name": "Đường Nguyễn Thị Minh Khai", "icon": "🏚️", "scene": "phoco" },
+    { "name": "Đường Bạch Đằng", "icon": "🛶", "note": "Bờ sông Hoài", "scene": "songnuoc" },
+    { "name": "Đường Châu Thượng Văn", "icon": "🍜", "note": "Cao lầu", "scene": "duongpho" },
+
+    { "name": "Bãi biển An Bàng", "icon": "🏖️", "scene": "bien" },
+    { "name": "Bãi biển Cửa Đại", "icon": "🌊", "scene": "bien" },
+    { "name": "Đảo Cẩm Kim", "icon": "🚤", "scene": "dao" },
+
+    { "name": "Phố Hoàng Diệu", "icon": "🎏", "scene": "dothi" },
+    { "name": "Phố Phan Bội Châu", "icon": "☕", "note": "Phố Pháp cổ", "scene": "phoco" },
+
+    { "name": "Chùa Cầu", "icon": "🌉", "note": "Biểu tượng của Hội An", "scene": "cauvong" },
+    { "name": "Hội quán Phúc Kiến", "icon": "⛩️", "scene": "chua" },
+    { "name": "Nhà cổ Tấn Ký", "icon": "🏯", "note": "Nhà cổ lâu đời nhất", "scene": "hoangthanh" }
+  ],
+
+  "transport": [
+    { "name": "Bến xe Hội An", "icon": "🚌" },
+    { "name": "Bến thuyền Bạch Đằng", "icon": "⛵", "scene": "thuyen" },
+    { "name": "Sân bay Đà Nẵng", "icon": "✈️", "scene": "sanbay" },
+    { "name": "Cảng Cửa Đại", "icon": "🛳️", "scene": "cangbien" }
+  ],
+
+  "utilities": [
+    { "name": "Điện lực Hội An", "icon": "⚡" },
+    { "name": "Nước sạch Hội An", "icon": "💧" }
+  ]
+}

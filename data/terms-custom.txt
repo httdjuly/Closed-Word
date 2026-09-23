@@ -1,0 +1,84 @@
+# Domain terms the embedding pack does not have, and the everyday words that mean
+# the same thing.
+#
+# `deno task pack:terms --write` reads this file, builds a vector for each term by
+# averaging the vectors of its expansion, and appends it to data/vectors.bin. That
+# makes the term guessable *and* rankable — before this, typing "rma" got you
+# "not in the word list", because guesses are checked against the 50,000-word
+# lexicon rather than against a word list we choose.
+#
+# Format:  term = word word word
+#
+# Rules for a good expansion:
+#   - only words already in the pack (the script tells you which are missing);
+#   - the words somebody would use to explain the term out loud, in the order
+#     they would say them;
+#   - three to six of them. One word makes the term a synonym of that word and
+#     nothing else; a dozen averages the meaning away into mush.
+#
+# The result is a *composed* vector, not a learned one. It puts the term next to
+# the right neighbourhood — rma lands beside return, warranty and repair — which
+# is all a semantic guessing game needs. It is not a claim about how the term is
+# used in real text.
+
+# --- service and support ---
+rma = return merchandise authorization warranty repair
+sla = service level agreement guarantee response
+eol = end life obsolete unsupported retirement
+poc = proof concept trial evaluation pilot
+kb = knowledge base article documentation guide
+ticket = support request issue case queue
+
+# --- identity and access ---
+sso = single sign authentication login credentials
+mfa = multi factor authentication verification code
+2fa = two factor authentication verification token
+rbac = role based access control permissions
+ldap = directory authentication lookup server protocol
+saml = authentication assertion federation identity exchange
+oauth = authorization delegated token grant access
+iam = identity access management permissions accounts
+
+# --- security operations ---
+edr = endpoint detection response monitoring threat
+xdr = extended detection response correlation telemetry
+mdr = managed detection response monitoring service
+siem = security event log correlation monitoring
+soc = security operations centre monitoring analysts
+dlp = data loss prevention leakage inspection
+ips = intrusion prevention blocking inline traffic
+ids = intrusion detection alerting traffic monitoring
+waf = web application firewall filtering requests
+vpn = virtual private network tunnel encrypted
+mitm = interception eavesdropping relay attack traffic
+ioc = indicator compromise evidence artefact detection
+apt = persistent stealthy targeted intrusion campaign
+cve = vulnerability disclosure identifier advisory catalogue
+cvss = vulnerability severity score rating scale
+patch = fix update remediation release correction
+
+# --- the in-house product neighbourhood ---
+metadefender = malware scanning sanitize engine platform
+metaaccess = compliance endpoint posture access checking
+cdr = content disarm rebuild sanitize file
+sbom = software bill materials inventory components
+ot = operational technology industrial plant machinery
+ics = industrial control system plant automation
+scada = supervisory control acquisition industrial monitoring
+plc = programmable logic controller industrial automation
+airgap = isolated disconnected separated network boundary
+usb = removable drive storage stick peripheral
+kiosk = terminal station booth screen unattended
+
+# --- delivery and infrastructure ---
+saas = software service hosted subscription cloud
+paas = platform service hosted cloud infrastructure
+iaas = infrastructure service hosted virtual cloud
+api = interface endpoint request programmatic integration
+sdk = development toolkit library integration package
+cicd = continuous integration delivery pipeline automation
+vm = virtual machine instance guest hypervisor
+k8s = containers orchestration cluster scheduling deployment
+qa = quality assurance testing verification review
+ui = interface screen layout visual design
+ux = experience usability design interaction flow

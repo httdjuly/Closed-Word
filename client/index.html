@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CloseWord Party</title>
+    <meta
+      name="description"
+      content="Semantic word-guessing races for a whole team, not just two people."
+    />
+    <link rel="stylesheet" href="/client/styles.css" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#127917;</text></svg>"
+    />
+    <script>
+    // Stamp the stored theme before first paint. client/theme.js is the real
+    // authority and re-applies everything a moment later, but it is a deferred
+    // module, so without this a player who chose dark gets a flash of light.
+    try {
+      var saved = JSON.parse(localStorage.getItem("closeword.prefs") || "{}");
+      var mode = saved.mode === "light" || saved.mode === "dark"
+        ? saved.mode
+        : matchMedia("(prefers-color-scheme: dark)").matches
+        ? "dark"
+        : "light";
+      document.documentElement.dataset.theme = mode;
+    } catch (e) {
+      /* storage unavailable; the stylesheet default is fine */
+    }
+    </script>
+  </head>
+  <body>
+    <div id="connBanner" class="conn-banner" hidden></div>
+    <div id="app" class="app">
+      <div id="boot" class="boot">Connecting…</div>
+    </div>
+    <div id="toasts" class="toasts" aria-live="polite"></div>
+    <script type="module" src="/client/app.js"></script>
+  </body>
+</html>

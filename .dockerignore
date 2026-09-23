@@ -1,0 +1,31 @@
+# Everything here is either rebuilt inside the image or must never reach it.
+# The build context is uploaded to the daemon before the first instruction runs,
+# so keeping this tight is what keeps builds quick.
+
+# Rebuilt in the image.
+dist
+
+# Runtime output.
+logs
+*.log
+
+# Secrets. The image takes its settings from the environment instead.
+.env
+.env.local
+
+# The 60 MB embedding pack: generated data, not source. The Dockerfile builds
+# one inside the image (ARG PACK) or expects it mounted at run time. The word
+# pools stay — they are small, and the game needs them for anything but the
+# default source.
+data/*.bin
+data/*.vec
+data/*.vec.zip
+data/*.gz
+data/raw
+
+# Not part of the application.
+.git
+.gitignore
+tests
+Dockerfile
+.dockerignore
