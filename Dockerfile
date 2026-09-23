@@ -72,7 +72,7 @@ COPY --from=build --chown=deno:deno /app/dist ./
 # The start task passes --env-file=.env. A missing file is only a warning, but
 # an empty one keeps the boot log honest — every setting here comes from the
 # environment.
-RUN touch .env && chown deno:deno .env
+RUN touch .env && chown deno:deno /app .env
 
 USER deno
 
